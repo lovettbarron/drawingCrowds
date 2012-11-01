@@ -1,0 +1,42 @@
+<smoothed>
+    <val_0>7.000000000</val_0>
+</smoothed>
+<impact>
+    <val_0>0.000000000</val_0>
+</impact>
+<density>
+    <val_0>5.000000000</val_0>
+</density>
+<bounce>
+    <val_0>5.000000000</val_0>
+</bounce>
+<friction>
+    <val_0>5.000000000</val_0>
+</friction>
+<attr>
+    <val_0>1.000000000</val_0>
+</attr>
+<sphereRad>
+    <val_0>300.000000000</val_0>
+</sphereRad>
+<lineWidth>
+    <val_0>0.094444446</val_0>
+</lineWidth>
+<pyrScale>
+    <val_0>0.500000000</val_0>
+</pyrScale>
+<levels>
+    <val_0>4.000000000</val_0>
+</levels>
+<winsize>
+    <val_0>8.000000000</val_0>
+</winsize>
+<iterations>
+    <val_0>2.000000000</val_0>
+</iterations>
+<polyN>
+    <val_0>7.000000000</val_0>
+</polyN>
+<polySigma>
+    <val_0>1.500000000</val_0>
+</polySigma>
