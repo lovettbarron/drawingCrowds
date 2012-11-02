@@ -49,7 +49,7 @@ private:
     ofxKinect kinect;
     ofVideoGrabber cam;
     ofxCv::ContourFinder contourFinder;
-    ofImage img;
+    ofImage img, imgBg;
     cv::Mat imgMat;
     ofxCv::FlowFarneback farneback;    
     ofxCv::Flow* curFlow;
