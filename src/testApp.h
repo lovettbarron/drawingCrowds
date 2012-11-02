@@ -27,6 +27,8 @@ class testApp : public ofBaseApp{
 		
     void audioReceived(float* input, int bufferSize, int nChannels);
     void plot(vector<float>& buffer, float scale, float offset);
+    ofPolyline getContour(ofxCv::ContourFinder * _contourFinder);
+    ofPolyline brush;
     
 private:
     // Vectors
@@ -41,9 +43,12 @@ private:
     ofSoundStream mic;
     ofxAutoControlPanel panel;
     
+    GLUquadricObj *quadric;
+    
     // Cam
     ofxKinect kinect;
     ofVideoGrabber cam;
+    ofxCv::ContourFinder contourFinder;
     ofImage img;
     cv::Mat imgMat;
     ofxCv::FlowFarneback farneback;    
@@ -62,7 +67,7 @@ private:
 		int 	bufferCounter;
 		int 	drawCounter;
     float maxValue;
-    
+    int strokeRandom;
 		float smoothedVol;
 		float scaledVol;
 

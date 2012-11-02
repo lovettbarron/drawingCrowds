@@ -14,7 +14,7 @@ void testApp::setup(){
     camera.setNearClip(100);
     camera.lookAt(ofVec3f(0,0,0));
     
-    tex.allocate(640,480,GL_RGBA,1);
+    tex.allocate(480,480,GL_RGBA,1);
     tex.begin();
     ofClear(0);
     tex.end();
@@ -50,6 +50,7 @@ void testApp::setup(){
     panel.addSlider("attr",1,0,1,false);
     panel.addSlider("sphereRad",300,10,500,true);
     panel.addSlider("lineWidth",1,0,1,false);
+    panel.addSlider("strokeRandom",2,0,20,false);
     
     panel.addLabel("Flow");
     panel.addSlider("pyrScale", .5, 0, 1);
@@ -63,13 +64,29 @@ void testApp::setup(){
     panel.addLabel("kinect");
     panel.addSlider("kAngle",0,-45,45, true);
     panel.addSlider("texDelay",10,0,255,true);
+    panel.addSlider("maxThreshold", 15, 0, 255, true);
+    panel.addSlider("minAreaRadius", 7, 0, 640, true);
+    panel.addSlider("maxAreaRadius", 100, 0, 640, true);
+    panel.addLabel("Background Subtraction");
+    panel.addSlider("learningTime",900,0,2000,true);
+    panel.addSlider("backgroundThresh",10,0,50,true);
+    panel.addToggle("resetBg", false);
+
     
     
     box2d.init();
     box2d.setGravity(0, 0);
     box2d.setFPS(30.0);
        
-    toon.load("shader/noise.vert","shader/noise.frag");
+    contourFinder.setMinAreaRadius(panel.getValueI("minAreaRadius"));
+    contourFinder.setMaxAreaRadius(panel.getValueI("maxAreaRadius"));
+    contourFinder.setThreshold(panel.getValueI("maxThreshold"));
+        // wait for half a frame before forgetting something
+    contourFinder.getTracker().setPersistence(15);
+        // an object can move up to 32 pixels per frame
+    contourFinder.getTracker().setMaximumDistance(32);
+    
+    toon.load("shader/noise");
     
 		
     for (int i=0; i<30; i++) {
@@ -103,6 +120,11 @@ void testApp::update(){
     if(kinect.isConnected()) kinect.update();
     else cam.update();
     
+    contourFinder.setMinAreaRadius(panel.getValueI("minAreaRadius"));
+    contourFinder.setMaxAreaRadius(panel.getValueI("maxAreaRadius"));
+    contourFinder.setThreshold(panel.getValueI("maxThreshold"));
+
+    
     if(kinect.isFrameNew() || cam.isFrameNew()) {
         if(kinect.isConnected()) {
             img.setFromPixels(kinect.getDepthPixels(), kinect.getWidth(), kinect.getHeight(), OF_IMAGE_GRAYSCALE);
@@ -124,15 +146,18 @@ void testApp::update(){
 
         curFlow->calcOpticalFlow(img);
         
+        ofxCv::blur(img,10);
+        contourFinder.findContours(img);
+        brush = getContour(&contourFinder);
+        
         /******************************
                 FLOW PAINTING
          ******************************/
             tex.begin();
             //ofClear(0,delay);
             //            curFlow->draw(0,0,tex.getWidth(),tex.getHeight());
-            
-            toon.begin();
-            toon.setUniform2f("center",tex.getWidth()/2, tex.getHeight()/2);
+
+            strokeRandom = panel.getValueF("strokeRandom");
         
             for(int x=0;x<farneback.getWidth()-(density);x+=density) {
                 for(int y=0;y<farneback.getHeight()-(density);y+=density) {
@@ -143,19 +168,19 @@ void testApp::update(){
                      );
                     
                     fftIndex %= farneback.getWidth();
-                    ofVec2f src = ofVec2f(x,y);
-                    ofVec2f dst = farneback.getFlowPosition(x,y);
+                    ofVec2f src = ofVec2f(x,y) + ofVec2f(ofRandom(-strokeRandom,strokeRandom),ofRandom(-strokeRandom,strokeRandom));
+                    ofVec2f dst = farneback.getFlowPosition(x,y) + ofVec2f(ofRandom(-strokeRandom,strokeRandom),ofRandom(-strokeRandom,strokeRandom));
                     
                     ofSetLineWidth((5 + sqrt(drawBins[fftIndex])));
-                    ofSetColor(170,(sqrt(drawBins[fftIndex])*255),170);
+                    ofSetColor(src.distance(dst),(sqrt(drawBins[fftIndex])*255),170);
                         // ofSetColor(255);
                     ofLine(src*2,dst*2);
+                    ofSetColor(255);
                     ofSetLineWidth(1);
                     
                     
                 }
             }
-            toon.end();
             ofClearAlpha();
             tex.end();
         overallRotation += ofVec3f();
@@ -221,6 +246,28 @@ void testApp::update(){
 }
 
 //--------------------------------------------------------------
+ofPolyline testApp::getContour(ofxCv::ContourFinder * _contourFinder) {
+    ofPolyline poly;
+    
+    if(_contourFinder->size() != 0 ) {
+        vector<ofPolyline> polylines;
+        polylines = _contourFinder->getPolylines();
+        for(int i=0; i<polylines.size(); i++) {
+            if(i==0) poly = polylines[i];
+                // if(polylines[i].getArea() > 20)
+            if(polylines[i].size() >= poly.size())
+                poly = polylines[i];
+                // poly.addVertices(polylines[i].getVertices());
+                //    }
+            
+        }
+    } 
+    poly.close();    
+        //poly.simplify(.3);    
+    return poly;
+}
+
+//--------------------------------------------------------------
 void testApp::draw(){
     ofBackgroundGradient(ofColor(255),ofColor(210) );
     ofSetColor(255);
@@ -239,60 +286,85 @@ void testApp::draw(){
         ofRotate(overallRotation.x, 0, 1, 0);
         ofSetColor(255);
         ofNoFill();
-//        for(int x=0;x<farneback.getWidth()-(density);x+=density) {
-//            for(int y=0;y<farneback.getHeight()-(density);y+=density) {
-//                ofPushMatrix();
-//                
-//                int index = x + ( y * farneback.getWidth() );
-//                
-//                ofVec2f dst = farneback.getFlowPosition(x, y);
-//                    // ofLine(ofVec2f(x,y), farneback.getFlowPosition(x, y));
-//                
-//                ofQuaternion srcX, srcY, dstX, dstY, spinQuat;
-//
-//                srcX.makeRotate(x, 1, 0, 0);
-//                srcY.makeRotate(y, 0, 1, 0);
-//                
-//                dstX.makeRotate(dst.x, 1, 0, 0);
-//                dstY.makeRotate(dst.y, 0, 1, 0);
-//                
-//                spinQuat.makeRotate(ofGetFrameNum(), 0, 1, 0);
-//                
-//                int fftIndex =  
-//                        (floor(
-//                          x  * (drawBins.size() 
-//                                / farneback.getWidth()))
-//                        );
-//                
-//                fftIndex %= farneback.getWidth();
-//                
-//                ofVec3f center = ofVec3f(0,0,
-//                                sphereRadius * (1 + sqrt(drawBins[fftIndex])));
-//                
-//                ofVec3f srcPt = srcX * srcY * spinQuat * center;
-//                ofVec3f dstPt = dstX * dstY * spinQuat * center;
-//                
-//                ofSetColor(srcPt.distanceSquared(dstPt));
-//                ofSetLineWidth(srcPt.distanceSquared(dstPt) * panel.getValueF("lineWidth"));
-//                ofLine(srcPt, dstPt);
-//                ofSetLineWidth(1);
-//                
-//                ofPopMatrix();
-//                
-//            }
-//        }
-    glEnable(GL_DEPTH_TEST);
+        for(int x=0;x<farneback.getWidth()-(density);x+=density) {
+            for(int y=0;y<farneback.getHeight()-(density);y+=density) {
+                ofPushMatrix();
+                
+                int index = x + ( y * farneback.getWidth() );
+                
+                ofVec2f dst = farneback.getFlowPosition(x, y);
+                    // ofLine(ofVec2f(x,y), farneback.getFlowPosition(x, y));
+                
+                ofQuaternion srcX, srcY, dstX, dstY, spinQuat;
+
+                srcX.makeRotate(x, 1, 0, 0);
+                srcY.makeRotate(y, 0, 1, 0);
+                
+                dstX.makeRotate(dst.x, 1, 0, 0);
+                dstY.makeRotate(dst.y, 0, 1, 0);
+                
+                spinQuat.makeRotate(ofGetFrameNum(), 0, 1, 0);
+                
+                int fftIndex =  
+                        (floor(
+                          x  * (drawBins.size() 
+                                / farneback.getWidth()))
+                        );
+                
+                fftIndex %= farneback.getWidth();
+                
+                ofVec3f center = ofVec3f(0,0,
+                                sphereRadius * (1 + sqrt(drawBins[fftIndex])));
+                
+                ofVec3f srcPt = srcX * srcY * spinQuat * center;
+                ofVec3f dstPt = dstX * dstY * spinQuat * center;
+                
+                srcPt += ofVec2f(ofRandom(-strokeRandom,strokeRandom),ofRandom(-strokeRandom,strokeRandom));
+                dstPt += ofVec2f(ofRandom(-strokeRandom,strokeRandom),ofRandom(-strokeRandom,strokeRandom));
+                
+                ofSetColor(srcPt.distanceSquared(dstPt));
+                ofSetLineWidth(srcPt.distanceSquared(dstPt) * panel.getValueF("lineWidth"));
+                ofLine(srcPt, dstPt);
+                ofSetLineWidth(1);
+                
+                ofPopMatrix();
+                
+            }
+        }
+    ofPushMatrix();
+    ofRotateY(ofGetFrameNum());
+        //glEnable(GL_DEPTH_TEST);
+    glEnable(GL_TEXTURE_2D);
     ofDisableArbTex();
-        //    ofFill();        ofSetColor(255);
+    ofFill();       ofSetColor(255,10);
+    
     tex.getTextureReference().bind();
-    ofSphere(0, 0, 0, sphereRadius);
+    
+    toon.begin();
+    toon.setUniform2f("center",tex.getWidth()/2, tex.getHeight()/2);
+    toon.setUniform1i("tex",0 );   
+    
+    toon.setUniform1f("sigma", 0.33f); 
+    toon.setUniform1f("blurSize", 0.1f);
+    toon.setUniform1f("k", 0.06f);
+    
+        //    ofSphere(0, 0, 0, sphereRadius);
+    
+    quadric = gluNewQuadric();
+    gluQuadricTexture(quadric, GL_TRUE);
+    gluQuadricNormals(quadric, GLU_SMOOTH);
+    gluSphere(quadric, sphereRadius, 100, 100);
+    toon.end();
+    
     tex.getTextureReference().unbind();
+    glDisable(GL_TEXTURE_2D);
     ofEnableArbTex();
+    ofPopMatrix();
     ofPopMatrix();
     
             //  tex.getTextureReference().bind();
         
-            //            toon.begin();
+        toon.begin();
         mesh.draw();
         mesh.drawWireframe();
         
@@ -305,11 +377,13 @@ void testApp::draw(){
                 //            ofSetColor(((i/circles.size())*255)%255,255,255);
             
             ofFill();
-            ofCircle(circles[i].getPosition().x, circles[i].getPosition().y, circles[i].getRadius() * (.5 + sqrt(drawBins[i])));
+            ofSetColor(sqrt(drawBins[i])*255,sqrt(drawBins[i])*255,sqrt(drawBins[i])*255);
+            ofCircle(circles[i].getPosition().x, circles[i].getPosition().y, circles[i].getRadius() * (1 + sqrt(drawBins[i])));
             
             primary.getSmoothed(panel.getValueI("smoothed")*(sqrt(drawBins[i])),0).draw();
             
-        }        
+        }   
+            toon.end();
 
     ofPopMatrix();
     glDisable(GL_DEPTH_TEST);

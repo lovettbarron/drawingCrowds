@@ -1,5 +1,5 @@
 <smoothed>
-    <val_0>7.000000000</val_0>
+    <val_0>5.333333015</val_0>
 </smoothed>
 <impact>
     <val_0>0.000000000</val_0>
@@ -17,11 +17,14 @@
     <val_0>1.000000000</val_0>
 </attr>
 <sphereRad>
-    <val_0>300.000000000</val_0>
+    <val_0>113.444442749</val_0>
 </sphereRad>
 <lineWidth>
-    <val_0>1.000000000</val_0>
+    <val_0>0.000000000</val_0>
 </lineWidth>
+<strokeRandom>
+    <val_0>14.555555344</val_0>
+</strokeRandom>
 <pyrScale>
     <val_0>0.500000000</val_0>
 </pyrScale>
@@ -41,5 +44,8 @@
     <val_0>1.500000000</val_0>
 </polySigma>
 <kAngle>
-    <val_0>-45.000000000</val_0>
+    <val_0>0.000000000</val_0>
 </kAngle>
+<texDelay>
+    <val_0>10.000000000</val_0>
+</texDelay>
