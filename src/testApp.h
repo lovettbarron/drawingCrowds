@@ -51,7 +51,7 @@ private:
     ofFbo tex;
     ofCamera camera;
     int sphereRadius;
-    int density;
+    int density, delay;
     
     //FFT
     int plotHeight, bufferSize;

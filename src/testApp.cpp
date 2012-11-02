@@ -5,19 +5,19 @@ void testApp::setup(){
     ofSetVerticalSync(true);
     //    ofEnableSmoothing();
     
-    if(kinect.isConnected()) {
         kinect.setRegistration(false);
         kinect.init(false, false, true);
-        kinect.open(0);
-    } else {
-        cam.initGrabber(320,240);
-    }
+        if(kinect.open(0)) ofLog() << "Kinect on";
+        else cam.initGrabber(320,240);
     
     camera.setPosition(ofVec3f(0,0,200));
     camera.setNearClip(100);
     camera.lookAt(ofVec3f(0,0,0));
     
     tex.allocate(640,480,GL_RGBA,1);
+    tex.begin();
+    ofClear(0);
+    tex.end();
     
     overallRotation = ofVec2f();
     
@@ -44,7 +44,7 @@ void testApp::setup(){
     panel.addSlider("smoothed", 3, 1, 7, true);
     panel.addSlider("impact", 0, 0, 1, false);    
     panel.addLabel("Physics");
-    panel.addSlider("density",5,1,10,true);
+    panel.addSlider("density",10,1,10,true);
     panel.addSlider("bounce",5,0,2,false);
     panel.addSlider("friction",5,0,2,false);
     panel.addSlider("attr",1,0,1,false);
@@ -59,53 +59,17 @@ void testApp::setup(){
     panel.addSlider("polyN", 7, 5, 10, true);
     panel.addSlider("polySigma", 1.5, 1.1, 2);
     
+    panel.addPanel("cam");
+    panel.addLabel("kinect");
+    panel.addSlider("kAngle",0,-45,45, true);
+    panel.addSlider("texDelay",10,0,255,true);
+    
     
     box2d.init();
     box2d.setGravity(0, 0);
     box2d.setFPS(30.0);
-    
-    string fragshader = "\
-    varying vec3 vNormal;\
-    varying vec3 vVertex;\
-    #define shininess 20.0\
-    void main (void)\
-    {\
-        vec4 color0 = vec4(0.8, 0.0, 0.0, 1.0);\
-        vec4 color1 = vec4(0.0, 0.0, 0.0, 1.0);\
-        vec4 color2 = vec4(0.8, 0.0, 0.0, 1.0);\
-        vec3 eyePos = vec3(0.0,0.0,5.0);\
-        vec3 lightPos = vec3(0.0,5.0,5.0);\
-        vec3 Normal = normalize(gl_NormalMatrix * vNormal);\
-        vec3 EyeVert = normalize(eyePos - vVertex);\
-        vec3 LightVert = normalize(lightPos - vVertex);\
-        vec3 EyeLight = normalize(LightVert+EyeVert);\
-        float sil = max(dot(Normal,EyeVert), 0.0);\
-        if (sil < 0.3) gl_FragColor = color1;\
-        else\
-        {\
-            gl_FragColor = color0;\
-            float spec = pow(max(dot(Normal,EyeLight),0.0), shininess);\
-            if (spec < 0.2) gl_FragColor *= 0.8;\
-            else gl_FragColor = color2;\
-            float diffuse = max(dot(Normal,LightVert),0.0);\
-            if (diffuse < 0.5) gl_FragColor *=0.8;\
-        }\
-    }\
-    ";
-    
-    string vertshader = "\
-    varying vec3 vNormal;\
-    varying vec3 vVertex\
-    void main(void)\
-    {\
-        vVertex = gl_Vertex.xyz;\
-        vNormal = gl_Normal;\
-        gl_Position = gl_ModelViewProjectionMatrix * gl_Vertex;\
-    }\
-    ";
-    
-    toon.setupShaderFromSource(GL_VERTEX_SHADER, vertshader);
-    toon.setupShaderFromSource(GL_FRAGMENT_SHADER, fragshader);
+       
+    toon.load("shader/noise.vert","shader/noise.frag");
     
 		
     for (int i=0; i<30; i++) {
@@ -121,7 +85,7 @@ void testApp::setup(){
 }
 
 void testApp::exit() {
-    mic.stop();
+    kinect.close();
 }
 
 //--------------------------------------------------------------
@@ -130,14 +94,20 @@ void testApp::update(){
     sphereRadius = panel.getValueI("sphereRad");
     density = panel.getValueI("density");
     
-    if(kinect.isConnected())
-        kinect.update();
-    else
-        cam.update();
+    if(panel.hasValueChanged("kAngle"))
+        kinect.setCameraTiltAngle(panel.getValueI("kAngle"));
+    
+    if(panel.hasValueChanged("texDelay"))
+        delay = panel.getValueI("texDelay");
+    
+    if(kinect.isConnected()) kinect.update();
+    else cam.update();
     
     if(kinect.isFrameNew() || cam.isFrameNew()) {
         if(kinect.isConnected()) {
             img.setFromPixels(kinect.getDepthPixels(), kinect.getWidth(), kinect.getHeight(), OF_IMAGE_GRAYSCALE);
+                //            img.allocate(kinect.getWidth()/2, kinect.getHeight()/2, OF_IMAGE_GRAYSCALE);
+                //            ofxCv::resize(kDepth, img);
             imgMat = ofxCv::toCv(img).clone();
         }
         else {
@@ -151,13 +121,41 @@ void testApp::update(){
         farneback.setNumIterations( panel.getValueF("iterations") );
         farneback.setPolyN( panel.getValueF("polyN") );
         farneback.setPolySigma( panel.getValueF("polySigma") );
-        farneback.setUseGaussian(panel.getValueB("OPTFLOW_FARNEBACK_GAUSSIAN"));
 
-            curFlow->calcOpticalFlow(img);
+        curFlow->calcOpticalFlow(img);
         
+        /******************************
+                FLOW PAINTING
+         ******************************/
             tex.begin();
-            ofClear(0);
-            curFlow->draw(0,0,tex.getWidth(),tex.getHeight());
+            //ofClear(0,delay);
+            //            curFlow->draw(0,0,tex.getWidth(),tex.getHeight());
+            
+            toon.begin();
+            toon.setUniform2f("center",tex.getWidth()/2, tex.getHeight()/2);
+        
+            for(int x=0;x<farneback.getWidth()-(density);x+=density) {
+                for(int y=0;y<farneback.getHeight()-(density);y+=density) {
+                    int fftIndex =  
+                    (floor(
+                           x  * (drawBins.size() 
+                                 / farneback.getWidth()))
+                     );
+                    
+                    fftIndex %= farneback.getWidth();
+                    ofVec2f src = ofVec2f(x,y);
+                    ofVec2f dst = farneback.getFlowPosition(x,y);
+                    
+                    ofSetLineWidth((5 + sqrt(drawBins[fftIndex])));
+                    ofSetColor(170,(sqrt(drawBins[fftIndex])*255),170);
+                        // ofSetColor(255);
+                    ofLine(src*2,dst*2);
+                    ofSetLineWidth(1);
+                    
+                    
+                }
+            }
+            toon.end();
             ofClearAlpha();
             tex.end();
         overallRotation += ofVec3f();
@@ -198,7 +196,9 @@ void testApp::update(){
             count+=floor(drawBins.size()/primary.size());
         else count++;
         
-        
+        /******************************
+            RANDOM CRAZY MESH YO
+         ******************************/
             mesh.clear();
             mesh.enableTextures();
             mesh.enableNormals();
@@ -230,62 +230,66 @@ void testApp::draw(){
 
     glDisable(GL_DEPTH_TEST);
 
-        ofPushMatrix();
-            ofTranslate(mesh.getCentroid());
-            ofRotate(overallRotation.x, 0, 1, 0);
-            ofSetColor(overallRotation.x);
-            ofNoFill();
+    /******************************
+     SUPER FUN CIRCLE THING
+     ******************************/
     
-    for(int x=0;x<farneback.getWidth()-(density);x+=density) {
-        for(int y=0;y<farneback.getHeight()-(density);y+=density) {
-            ofPushMatrix();
-            
-            int index = x + ( y * farneback.getWidth() );
-            
-            ofVec2f dst = farneback.getFlowPosition(x, y);
-                // ofLine(ofVec2f(x,y), farneback.getFlowPosition(x, y));
-            
-            ofQuaternion srcX, srcY, dstX, dstY, spinQuat;
-
-            srcX.makeRotate(x, 1, 0, 0);
-            srcY.makeRotate(y, 0, 1, 0);
-            
-            dstX.makeRotate(dst.x, 1, 0, 0);
-            dstY.makeRotate(dst.y, 0, 1, 0);
-            
-            spinQuat.makeRotate(ofGetFrameNum(), 0, 1, 0);
-            
-            int fftIndex =  
-                    (floor(
-                      x  * (drawBins.size() 
-                            / farneback.getWidth()))
-                    );
-            
-            fftIndex %= farneback.getWidth();
-            
-            ofVec3f center = ofVec3f(0,0,
-                            sphereRadius * (1 + sqrt(drawBins[fftIndex])));
-            
-            ofVec3f srcPt = srcX * srcY * spinQuat * center;
-            ofVec3f dstPt = dstX * dstY * spinQuat * center;
-            
-            ofSetColor(srcPt.distanceSquared(dstPt));
-            ofSetLineWidth(srcPt.distanceSquared(dstPt) * panel.getValueF("lineWidth"));
-            ofLine(srcPt, dstPt);
-            ofSetLineWidth(1);
-            
-            ofPopMatrix();
-            
-        }
-    }
-
-    
-    
-        //ofSphere(0, 0, 0, sphereRadius);
-            ofFill();
-        ofPopMatrix();
-    
+    ofPushMatrix();
+        ofTranslate(mesh.getCentroid());
+        ofRotate(overallRotation.x, 0, 1, 0);
         ofSetColor(255);
+        ofNoFill();
+//        for(int x=0;x<farneback.getWidth()-(density);x+=density) {
+//            for(int y=0;y<farneback.getHeight()-(density);y+=density) {
+//                ofPushMatrix();
+//                
+//                int index = x + ( y * farneback.getWidth() );
+//                
+//                ofVec2f dst = farneback.getFlowPosition(x, y);
+//                    // ofLine(ofVec2f(x,y), farneback.getFlowPosition(x, y));
+//                
+//                ofQuaternion srcX, srcY, dstX, dstY, spinQuat;
+//
+//                srcX.makeRotate(x, 1, 0, 0);
+//                srcY.makeRotate(y, 0, 1, 0);
+//                
+//                dstX.makeRotate(dst.x, 1, 0, 0);
+//                dstY.makeRotate(dst.y, 0, 1, 0);
+//                
+//                spinQuat.makeRotate(ofGetFrameNum(), 0, 1, 0);
+//                
+//                int fftIndex =  
+//                        (floor(
+//                          x  * (drawBins.size() 
+//                                / farneback.getWidth()))
+//                        );
+//                
+//                fftIndex %= farneback.getWidth();
+//                
+//                ofVec3f center = ofVec3f(0,0,
+//                                sphereRadius * (1 + sqrt(drawBins[fftIndex])));
+//                
+//                ofVec3f srcPt = srcX * srcY * spinQuat * center;
+//                ofVec3f dstPt = dstX * dstY * spinQuat * center;
+//                
+//                ofSetColor(srcPt.distanceSquared(dstPt));
+//                ofSetLineWidth(srcPt.distanceSquared(dstPt) * panel.getValueF("lineWidth"));
+//                ofLine(srcPt, dstPt);
+//                ofSetLineWidth(1);
+//                
+//                ofPopMatrix();
+//                
+//            }
+//        }
+    glEnable(GL_DEPTH_TEST);
+    ofDisableArbTex();
+        //    ofFill();        ofSetColor(255);
+    tex.getTextureReference().bind();
+    ofSphere(0, 0, 0, sphereRadius);
+    tex.getTextureReference().unbind();
+    ofEnableArbTex();
+    ofPopMatrix();
+    
             //  tex.getTextureReference().bind();
         
             //            toon.begin();
@@ -309,7 +313,9 @@ void testApp::draw(){
 
     ofPopMatrix();
     glDisable(GL_DEPTH_TEST);
-    
+    /******************************
+            DEBUG LIKE A MOFO
+     ******************************/
     if(debug) {
         soundMutex.lock();
         drawBins = middleBins;
@@ -317,13 +323,16 @@ void testApp::draw(){
         ofSetColor(255);
         ofPushMatrix();
         ofTranslate(16, 16);
-        img.draw(plotHeight+10,10,320,240);
+        if(kinect.isConnected())
+            kinect.drawDepth(plotHeight+10,10,320,240);
+        else img.draw(plotHeight+10,10,320,240);
+        tex.draw(plotHeight+10+320,10,320,240);
         curFlow->draw(plotHeight+10,10,320,240);
         ofDrawBitmapString("Frequency Domain", 0, 0);
         plot(drawBins, -plotHeight, plotHeight / 2);
         
         ofSetColor(225);
-        ofTranslate(10,300);
+        ofTranslate(10,350);
         ofDrawBitmapString("current flow: x" + ofToString(farneback.getTotalFlow().x) + " y" + ofToString(farneback.getTotalFlow().y), 4,18 );
         ofTranslate(0,18);    
         ofDrawBitmapString("Overall flow: x" + ofToString(overallRotation.x) + " y" + ofToString(overallRotation.y), 4,18 );

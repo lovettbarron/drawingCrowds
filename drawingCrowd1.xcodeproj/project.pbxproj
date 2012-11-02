@@ -61,6 +61,8 @@
 		834318CD163F101100EEFE85 /* ofxBox2dJoint.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 834317E4163F100F00EEFE85 /* ofxBox2dJoint.cpp */; };
 		834318CE163F101100EEFE85 /* ofxBox2dPolygon.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 834317E6163F100F00EEFE85 /* ofxBox2dPolygon.cpp */; };
 		834318CF163F101100EEFE85 /* ofxBox2dRect.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 834317E9163F100F00EEFE85 /* ofxBox2dRect.cpp */; };
+		83A4D1E516440306009C0EA3 /* noise.frag in Sources */ = {isa = PBXBuildFile; fileRef = 83A4D1E316440306009C0EA3 /* noise.frag */; };
+		83A4D1E616440306009C0EA3 /* noise.vert in Sources */ = {isa = PBXBuildFile; fileRef = 83A4D1E416440306009C0EA3 /* noise.vert */; };
 		83CC0330163F3E9000C77F11 /* guiBaseObject.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 83CC02F5163F3E9000C77F11 /* guiBaseObject.cpp */; };
 		83CC0331163F3E9000C77F11 /* guiCallback.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 83CC02F7163F3E9000C77F11 /* guiCallback.cpp */; };
 		83CC0332163F3E9000C77F11 /* guiCallbackValue.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 83CC02F9163F3E9000C77F11 /* guiCallbackValue.cpp */; };
@@ -275,6 +277,8 @@
 		834317EA163F100F00EEFE85 /* ofxBox2dRect.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ofxBox2dRect.h; sourceTree = "<group>"; };
 		834317EB163F100F00EEFE85 /* ofxBox2dRender.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ofxBox2dRender.h; sourceTree = "<group>"; };
 		834317EC163F100F00EEFE85 /* ofxBox2dUtils.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ofxBox2dUtils.h; sourceTree = "<group>"; };
+		83A4D1E316440306009C0EA3 /* noise.frag */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.glsl; path = noise.frag; sourceTree = "<group>"; };
+		83A4D1E416440306009C0EA3 /* noise.vert */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.glsl; path = noise.vert; sourceTree = "<group>"; };
 		83CC02F5163F3E9000C77F11 /* guiBaseObject.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = guiBaseObject.cpp; sourceTree = "<group>"; };
 		83CC02F6163F3E9000C77F11 /* guiBaseObject.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = guiBaseObject.h; sourceTree = "<group>"; };
 		83CC02F7163F3E9000C77F11 /* guiCallback.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = guiCallback.cpp; sourceTree = "<group>"; };
@@ -722,6 +726,16 @@
 			path = src;
 			sourceTree = "<group>";
 		};
+		83A4D1E216440306009C0EA3 /* shader */ = {
+			isa = PBXGroup;
+			children = (
+				83A4D1E316440306009C0EA3 /* noise.frag */,
+				83A4D1E416440306009C0EA3 /* noise.vert */,
+			);
+			name = shader;
+			path = bin/data/shader;
+			sourceTree = "<group>";
+		};
 		83CC02F1163F3E9000C77F11 /* kyle_ofxControlPanel */ = {
 			isa = PBXGroup;
 			children = (
@@ -1007,6 +1021,7 @@
 			children = (
 				E4B6FCAD0C3E899E008CF71C /* openFrameworks-Info.plist */,
 				E4EB6923138AFD0F00A09F29 /* Project.xcconfig */,
+				83A4D1E216440306009C0EA3 /* shader */,
 				E4B69E1C0A3A1BDC003C02F2 /* src */,
 				E4EEC9E9138DF44700A80321 /* openFrameworks */,
 				BB4B014C10F69532006C3DED /* addons */,
@@ -1257,6 +1272,8 @@
 				83CC040C163F835100C77F11 /* ofxFft.cpp in Sources */,
 				83CC040D163F835100C77F11 /* ofxFftBasic.cpp in Sources */,
 				83CC040E163F835100C77F11 /* ofxFftw.cpp in Sources */,
+				83A4D1E516440306009C0EA3 /* noise.frag in Sources */,
+				83A4D1E616440306009C0EA3 /* noise.vert in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

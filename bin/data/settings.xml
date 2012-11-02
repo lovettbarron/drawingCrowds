@@ -5,7 +5,7 @@
     <val_0>0.000000000</val_0>
 </impact>
 <density>
-    <val_0>5.000000000</val_0>
+    <val_0>10.000000000</val_0>
 </density>
 <bounce>
     <val_0>5.000000000</val_0>
@@ -20,7 +20,7 @@
     <val_0>300.000000000</val_0>
 </sphereRad>
 <lineWidth>
-    <val_0>0.094444446</val_0>
+    <val_0>1.000000000</val_0>
 </lineWidth>
 <pyrScale>
     <val_0>0.500000000</val_0>
@@ -40,3 +40,6 @@
 <polySigma>
     <val_0>1.500000000</val_0>
 </polySigma>
+<kAngle>
+    <val_0>-45.000000000</val_0>
+</kAngle>
