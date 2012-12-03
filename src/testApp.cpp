@@ -1,535 +1,449 @@
 #include "testApp.h"
 
+using namespace cv;
+using namespace ofxCv;
+
 //--------------------------------------------------------------
 void testApp::setup(){
+    setupGUI();
+    setupCamera();
     ofSetVerticalSync(true);
-    //    ofEnableSmoothing();
-    
-       // kinect.setRegistration(false);
-        kinect.init(false, false, true);
-        if(kinect.open(0)) ofLog() << "Kinect on";
-        else cam.initGrabber(320,240);
-    if(kinect.isConnected())
-        img.allocate(kinect.getWidth()/4, kinect.getHeight()/4, OF_IMAGE_GRAYSCALE);
-    
-    camera.setPosition(ofVec3f(0,0,200));
-    camera.setNearClip(100);
-    camera.lookAt(ofVec3f(0,0,0));
-    
-    tex.allocate(480,480,GL_RGBA,1);
-    tex.begin();
-    ofClear(0);
-    tex.end();
-    
-    overallRotation = ofVec2f();
-    
-    plotHeight = 128;
-    bufferSize = 512;
-    fft = ofxFft::create(bufferSize, OF_FFT_WINDOW_HAMMING);
-        //fft = ofxFft::create(bufferSize, OF_FFT_WINDOW_HAMMING, OF_FFT_FFTW);
-    
-    drawBuffer.resize(bufferSize);
-    middleBuffer.resize(bufferSize);
-    audioBuffer.resize(bufferSize);
-    
-    drawBins.resize(fft->getBinSize());
-    middleBins.resize(fft->getBinSize());
-    audioBins.resize(fft->getBinSize());
-    
-    ofSoundStreamSetup(0, 2, this, 44100, bufferSize, 4);
-    
-    
-    
-    panel.setup(200, 800);
-    
-    panel.addPanel("drawingCrowds");
-    panel.addSlider("smoothed", 3, 1, 7, true);
-    panel.addSlider("impact", 0, 0, 1, false);    
-    panel.addLabel("Physics");
-    panel.addSlider("density",10,1,10,true);
-    panel.addSlider("bounce",5,0,2,false);
-    panel.addSlider("friction",5,0,2,false);
-    panel.addSlider("attr",1,0,1,false);
-    panel.addSlider("sphereRad",300,10,500,true);
-    panel.addSlider("lineWidth",1,0,1,false);
-    panel.addSlider("strokeRandom",2,0,20,false);
-    
-    panel.addLabel("Flow");
-    panel.addSlider("pyrScale", .5, 0, 1);
-    panel.addSlider("levels", 4, 1, 8, true);
-    panel.addSlider("winsize", 8, 4, 64, true);
-    panel.addSlider("iterations", 2, 1, 8, true);
-    panel.addSlider("polyN", 7, 5, 10, true);
-    panel.addSlider("polySigma", 1.5, 1.1, 2);
-    
-    panel.addPanel("cam");
-    panel.addLabel("kinect");
-    panel.addSlider("kAngle",0,-45,45, true);
-    panel.addSlider("texDelay",10,0,255,true);
-    panel.addSlider("maxThreshold", 15, 0, 255, true);
-    panel.addSlider("minAreaRadius", 7, 0, 640, true);
-    panel.addSlider("maxAreaRadius", 100, 0, 640, true);
-    panel.addLabel("Background Subtraction");
-    panel.addSlider("learningTime",900,0,2000,true);
-    panel.addSlider("backgroundThresh",10,0,50,true);
-    panel.addToggle("resetBg", false);
-
-    
+    attract = false;
+    debug = false;
+    shader.load("shader/shader");
+    shader2.load("shader/noise");
+    rectWidth = 300;
+    rectHeight = 300;
+    font.loadFont("type/ProximaNova-Extrabold.otf", 127, true, false, true, 0.4, 72);
+    resetCounter = 0;
+    movieSelector = 0;
+    numOfMovies = 19; // Num -1
     
     box2d.init();
-    box2d.setGravity(0, 0);
-    box2d.setFPS(30.0);
-       
-    contourFinder.setMinAreaRadius(panel.getValueI("minAreaRadius"));
-    contourFinder.setMaxAreaRadius(panel.getValueI("maxAreaRadius"));
-    contourFinder.setThreshold(panel.getValueI("maxThreshold"));
-        // wait for half a frame before forgetting something
-    contourFinder.getTracker().setPersistence(15);
-        // an object can move up to 32 pixels per frame
-    contourFinder.getTracker().setMaximumDistance(32);
+	box2d.setGravity(0, 10);
+    box2d.createBounds(0,0,2000,400);
+	box2d.setFPS(10.0);
+	box2d.registerGrabbing();
+	
+    anchor1.setup(box2d.getWorld(), 0, 0, 20);
+    anchor2.setup(box2d.getWorld(), ofGetWidth(), 0, 20);
     
-    toon.load("shader/noise");
+    playDist = ofGetWidth()/3;
     
+    int numOfVideos = 15;
+    
+    for (int i=0; i<numOfVideos; i++) {
 		
-    for (int i=0; i<30; i++) {
+        ofxBox2dCircle home;
+        home.setup(box2d.getWorld(), i*128,100,40);
+        homeBase.push_back(home);
+
+		ofxBox2dCircle circle;
+		circle.setPhysics(9999.0, 0.01, 2.9);
+		circle.setup(box2d.getWorld(),  i*128,100, 4);
+		boxes.push_back(circle);
+	}
+    
+    for (int i=0; i<boxes.size(); i++) {
+      boxes[i].addAttractionPoint(homeBase[i].getPosition(), .9);
+		ofxBox2dJoint joint;
         
         
-        float r = ofRandom(10, 20);		
-        ofxBox2dCircle circle;
-        circle.setPhysics(6.0, 0.3, 1.9);
-        circle.setup(box2d.getWorld(), ofGetWidth()/2, ofGetHeight()/2, r);
-        circles.push_back(circle);
-    }
-    curFlow = &farneback;
+        
+        joint.setup(box2d.getWorld(), homeBase[i].body, boxes[i].body);		
+        
+//		// if this is the first point connect to the top anchor.
+//		if(i == 0) {
+//			joint.setup(box2d.getWorld(), anchor1.body, boxes[i].body);		
+//                        ofLog() << "Conncted to first anchor";
+//		} else
+//        if(i == boxes.size()-1) {
+//            joint.setup(box2d.getWorld(), boxes[i-1].body, boxes[i].body);
+//            joint.setup(box2d.getWorld(), boxes[i].body, anchor2.body);		        
+//            ofLog() << "Conncted to last anchor";
+//        }
+//		else {
+//			joint.setup(box2d.getWorld(), boxes[i-1].body, boxes[i].body);
+//		}
+        
+		joint.setLength(200);
+        joint.setDamping(.5);
+		joints.push_back(joint);
+	}
+    vidJoint.clear();
 }
 
 void testApp::exit() {
     kinect.close();
+    kinect.clear();
 }
 
-//--------------------------------------------------------------
-void testApp::update(){
-    scaledVol = panel.getValueF("attr");
-    sphereRadius = panel.getValueI("sphereRad");
-    density = panel.getValueI("density");
+void testApp::setupGUI() {
+    panelWidth = 200;
+    panel.setup(panelWidth, 800);
+    panel.addPanel("Tracking Bits");
+    panel.addLabel("Image Processing");
+    panel.addSlider("maxThreshold", 15, 0, 255, true);
+    panel.addSlider("minAreaRadius", 7, 0, 640, true);
+    panel.addSlider("maxAreaRadius", 100, 0, 640, true);
+    panel.addSlider("DepthMultiplier", .01,0,5.,false);
+    panel.addLabel("Background Subtraction");
+    panel.addSlider("learningTime",900,0,2000,true);
+    panel.addSlider("backgroundThresh",10,0,50,true);
+    panel.addToggle("resetBg", false);
+    panel.addSlider("OverlapDistance", 500, 0,1000,true);
     
-    if(panel.hasValueChanged("kAngle"))
-        kinect.setCameraTiltAngle(panel.getValueI("kAngle"));
+    panel.addSlider("idScale",.3,0,1.,false);
+    panel.addSlider("idPos",-500,-500,500,true);
     
-    if(panel.hasValueChanged("texDelay"))
-        delay = panel.getValueI("texDelay");
+    panel.addPanel("Kinect");
+    panel.addSlider("angle", 0, -40, 40, true);
+    angle = panel.getValueI("angle");
+}
+
+void testApp::setupCamera() {
+    kinect.setRegistration(true);
+    ofLog() << "Starting first kinect";
+    kinect.init(false, false, true); // infrared=false, video=true, texture=true
+    kinect.open(0);
+    kinect.setCameraTiltAngle(angle);
     
-    if(kinect.isConnected()) kinect.update();
-    else cam.update();
+    if(!kinect.isConnected()) {
+        cam.initGrabber(640, 480);
+    }
+    
+    thresh.allocate(640, 480, OF_IMAGE_GRAYSCALE);
+    kDepth.allocate(640, 480, OF_IMAGE_GRAYSCALE);
+    kDepthMat.create(480, 640, CV_8UC1);
+    //threshMat.create(480, 640, CV_32F);
+    imitate(threshMat, kDepthMat);
+    //    imitate(kDepth, kDepthMat);
+    //    imitate(thresh, threshMat);
+    
+    background.setThresholdValue(panel.getValueI("backgroundThresh"));
+    background.setLearningTime(panel.getValueI("learningTime"));
     
     contourFinder.setMinAreaRadius(panel.getValueI("minAreaRadius"));
     contourFinder.setMaxAreaRadius(panel.getValueI("maxAreaRadius"));
     contourFinder.setThreshold(panel.getValueI("maxThreshold"));
+    // wait for half a frame before forgetting something
+    contourFinder.getTracker().setPersistence(15);
+    // an object can move up to 32 pixels per frame
+    contourFinder.getTracker().setMaximumDistance(32);
+}
 
+void testApp::updateCamera() {
+    contourFinder.setMinAreaRadius(panel.getValueI("minAreaRadius"));
+    contourFinder.setMaxAreaRadius(panel.getValueI("maxAreaRadius"));
+    contourFinder.setThreshold(panel.getValueI("maxThreshold"));
+    background.setLearningTime(panel.getValueI("learningTime"));
+    background.setThresholdValue(panel.getValueI("backgroundThresh"));
+    if(panel.hasValueChanged("angle")) {
+        angle = panel.getValueI("angle");
+        kinect.setCameraTiltAngle(angle);
+    }   
     
-    if(kinect.isFrameNew() || cam.isFrameNew()) {
-        if(kinect.isConnected()) {
-            imgBg.setFromPixels(kinect.getDepthPixels(), kinect.getWidth(), kinect.getHeight(), OF_IMAGE_GRAYSCALE);
-            ofxCv::resize(imgBg, img);
-            imgMat = ofxCv::toCv(img).clone();
+    
+    if(panel.getValueB("resetBg")) {
+        //        background.reset();
+        threshMat = kDepthMat.clone();
+        panel.setValueB("resetBg",false);
+    }
+    
+    if(!kinect.isConnected()) {
+        cam.update();
+        if(cam.isFrameNew()) {            
+            background.update(cam, thresh);
+            thresh.update();
+            blur(cam, 10);
+            contourFinder.findContours(cam);
         }
-        else {
-            img.setFromPixels(cam.getPixels(),cam.getWidth(), cam.getHeight(), OF_IMAGE_COLOR);
-            imgMat = ofxCv::toCv(img);
-            }
-        curFlow = &farneback;
-        farneback.setPyramidScale( panel.getValueF("pyrScale") );
-        farneback.setNumLevels( panel.getValueF("levels") );
-        farneback.setWindowSize( panel.getValueF("winsize") );
-        farneback.setNumIterations( panel.getValueF("iterations") );
-        farneback.setPolyN( panel.getValueF("polyN") );
-        farneback.setPolySigma( panel.getValueF("polySigma") );
-
-        curFlow->calcOpticalFlow(img);
+    } else {
+        kinect.update();
+        if(kinect.isFrameNew()) {
+            kDepthMat = toCv(kinect.getDepthPixelsRef());
+            blur(kDepthMat, 10);
+            kDepthMat -= threshMat;
+            contourFinder.findContours(kDepthMat);
+//            brush = getContour(&contourFinder);
+        }
         
-        ofxCv::blur(img,10);
-        contourFinder.findContours(img);
-        brush = getContour(&contourFinder);
-        
-        /******************************
-                FLOW PAINTING
-         ******************************/
-//            tex.begin();
-//            //ofClear(0,delay);
-//            //            curFlow->draw(0,0,tex.getWidth(),tex.getHeight());
-//
-//            strokeRandom = panel.getValueF("strokeRandom");
-//        
-//            for(int x=0;x<farneback.getWidth()-(density);x+=density) {
-//                for(int y=0;y<farneback.getHeight()-(density);y+=density) {
-//                    int fftIndex =  
-//                    (floor(
-//                           x  * (drawBins.size() 
-//                                 / farneback.getWidth()))
-//                     );
-//                    
-//                    fftIndex %= farneback.getWidth();
-//                    ofVec2f src = ofVec2f(x,y) + ofVec2f(ofRandom(-strokeRandom,strokeRandom),ofRandom(-strokeRandom,strokeRandom));
-//                    ofVec2f dst = farneback.getFlowPosition(x,y) + ofVec2f(ofRandom(-strokeRandom,strokeRandom),ofRandom(-strokeRandom,strokeRandom));
-//                    
-//                    ofSetLineWidth((5 + sqrt(drawBins[fftIndex])));
-//                    ofSetColor(src.distance(dst),(sqrt(drawBins[fftIndex])*255),170);
-//                        // ofSetColor(255);
-//                    ofLine(src*2,dst*2);
-//                    ofSetColor(255);
-//                    ofSetLineWidth(1);
-//                    
-//                    
-//                }
-//            }
-//            ofClearAlpha();
-//            tex.end();
-        overallRotation += ofVec3f();
-        
-        
-        overallRotation += farneback.getAverageFlowInRegion(ofRectangle(0,0,farneback.getWidth()/2,farneback.getHeight()));
-        
-        overallRotation -= farneback.getAverageFlowInRegion(ofRectangle(farneback.getWidth()/2,0,farneback.getWidth()/2,farneback.getHeight()));
-    }
-    
-    soundMutex.lock();
-    drawBuffer = middleBuffer;
-    drawBins = middleBins;
-    soundMutex.unlock();
-    
-    primary.clear();
-    
-    box2d.update();	
-    ofVec2f mouse(ofGetMouseX(), ofGetMouseY());
-        //float minDis = ofGetMousePressed() ? 500 : 100;
-    
-    float minDis = 500 * (maxValue + .2);
-    
-    ofVec3f center = ofVec3f(ofGetWidth()/2,ofGetHeight()/2,0);
-    
-    for(int i=1; i<circles.size(); i++) {
-        float dis = center.distance(circles[i].getPosition());
-        if(dis < minDis) circles[i].addRepulsionForce(center, 9*scaledVol);
-        else circles[i].addAttractionPoint(center, (9.0*scaledVol)+2);
-        
-        primary.addVertex(circles[i].getPosition());
-    }
-    
-    int count=0;
-    for(int i=0;i<primary.size();i++) {
-        
-        if(drawBins.size()>primary.size())
-            count+=floor(drawBins.size()/primary.size());
-        else count++;
-        
-        /******************************
-            RANDOM CRAZY MESH YO
-         ******************************/
-            mesh.clear();
-            mesh.enableTextures();
-            mesh.enableNormals();
-            mesh.enableColors();
-            mesh.setMode(OF_PRIMITIVE_TRIANGLE_STRIP);
-            for(int i = 1; i < primary.size(); i++) {
-                ofVec3f thisPoint = primary[i-1];
-                ofVec3f nextPoint = primary[i];
-                mesh.addColor(drawBins[count]);
-                mesh.addVertex(thisPoint * (overallRotation * panel.getValueF("impact")+1 ));
-                if(i%1) {
-                    mesh.addVertex(nextPoint* (overallRotation * panel.getValueF("impact")+1));
-                    mesh.addColor(drawBins[count]);
-                    mesh.addTexCoord(ofVec2f((i-1)/primary.size() * tex.getWidth(),1.0f * tex.getHeight()));                    
-                }
-                mesh.addTexCoord(ofVec2f((i-1)/primary.size() * tex.getWidth(),1.0f * tex.getHeight()));
-                mesh.addNormal(ofVec3f(0,0,1.0f));
-            }        
     }
 }
 
+
 //--------------------------------------------------------------
-ofPolyline testApp::getContour(ofxCv::ContourFinder * _contourFinder) {
-    ofPolyline poly;
+void testApp::update(){
+	box2d.update();	
+    updateCamera();
+    depthMulti = panel.getValueF("DepthMultiplier");
+	ofVec2f mouse(ofGetMouseX(), 5);
+	float minDis = ofGetMousePressed() ? 300 : 200;
     
-    if(_contourFinder->size() != 0 ) {
-        vector<ofPolyline> polylines;
-        polylines = _contourFinder->getPolylines();
-        for(int i=0; i<polylines.size(); i++) {
-            if(i==0) poly = polylines[i];
-                // if(polylines[i].getArea() > 20)
-            if(polylines[i].size() >= poly.size())
-                poly.addVertices(polylines[i].getVertices());
-                // poly.addVertices(polylines[i].getVertices());
-                //    }
+	for(int i=0; i<boxes.size(); i++) {
+        int personCount=7;
+        if(contourFinder.size()<personCount) personCount = contourFinder.size();
+        for(int j = 0; j < personCount; j++) {
+            ofPoint center = ofPoint(0,0);
+            center = toOf(contourFinder.getCenter(j));
+            float depth = 1.0;
+            if(kinect.isConnected())
+                depth = kinect.getDistanceAt(center)*depthMulti;
+            else depth = 10*depthMulti;
             
+             boxes[i].addRepulsionForce((center.x/640) * ofGetWidth(),10, depth);
         }
-    } 
-    poly.close();    
-        //poly.simplify(.3);    
-    return poly;
+		float dis = mouse.distance(boxes[i].getPosition());
+       // float minDis = 10;
+        
+//        ofLog() << "dis" << ofToString(i) << ": " << ofToString(dis);
+//		 boxes[i].addRepulsionForce(mouse.x,mouse.y, 1.0);
+
+         // Lets check distances
+//        float distA = boxes[i-1].getPosition().distance(boxes[i].getPosition());
+//        float distB = boxes[i+1].getPosition().distance(boxes[i].getPosition());
+        
+        // if this point is beyond the "play" distance or playing
+//        // Make sure that it stays within a bound, so apply a joint
+//        if(distA >= playDist) {
+//            
+//        } else
+//        if(distA <= minDis) {
+//            
+//        }
+        
+        //If not, then keep it joint free
+        if(i!=0) {
+           // ofLog() << "Dist" << ofToString(i) << ": " << ofToString(boxes[i-1].getPosition().distance(boxes[i].getPosition()));
+            if(resetCounter == 0) {
+            if(boxes[i-1].getPosition().distance(boxes[i].getPosition()) > 450) {
+                bool isOverlap = false;
+                if(scenes.size() < 2) {
+                    for(int j=0;j<scenes.size();j++){ 
+                        if(boxes[i-1].getPosition().distance(scenes[j].pos) < panel.getValueI("OverlapDistance")) {
+                            isOverlap = true;
+                            //ofLog() << "Overlap happening.";
+                        };
+                    }
+                    if(!isOverlap) {
+                        ofLog() << "New Joint!";
+                        ofxBox2dJoint joint;
+                        joint.setup(box2d.getWorld(), boxes[i-1].body, boxes[i].body);
+                        joint.setLength(500);
+                        Scene scn = Scene();
+                        scenes.push_back(scn); 
+                        scenes[scenes.size()-1].setup("", joint, boxes[i-1].getPosition().x, 640, movieSelector);
+                        movieSelector = (movieSelector+1)%numOfMovies;
+                    }
+                }
+                }
+            } else {
+                resetCounter -= 1;
+            }
+        }
+	}
+    bool stillActive = false;
+    for(int i=0;i<scenes.size();i++) {
+        scenes[i].update();
+        if(!stillActive)
+        stillActive = scenes[i].isDone();
+    }
+    if(!stillActive) {
+        scenes.clear();
+        if(resetCounter == 0) resetCounter = 100;
+        ofLog() << "Reseting movies";
+    }
+   if(scenes.size() == 0) {
+       resetCounter = 0;
+   }
+    
+    if(ofGetSeconds()%330 == 0) {
+        scenes.clear();
+        ofLog() << "Kill switch!";
+    }
+    
 }
 
 //--------------------------------------------------------------
 void testApp::draw(){
-    ofBackgroundGradient(ofColor(0),ofColor(10) );
-    ofSetColor(255);
-
-    ofPushMatrix();
-    ofTranslate(200,0);
-
-    glDisable(GL_DEPTH_TEST);
-
-    /******************************
-     SUPER FUN CIRCLE THING
-     ******************************/
+    ofBackgroundGradient(ofColor(0),ofColor(10) );    
     
-    ofPushMatrix();
-        ofTranslate(mesh.getCentroid());
-        ofRotate(overallRotation.x, 0, 1, 0);
-        ofSetColor(255);
-        ofNoFill();
-        int prevBrushIndex = 0;
-        for(int x=0;x<farneback.getWidth()-(density);x+=density) {
-            for(int y=0;y<farneback.getHeight()-(density);y+=density) {
-                ofPushMatrix();
-                
-                int index = x + ( y * farneback.getWidth() );
-                int brushIndex = floor(brush.size() * (x + ( y * farneback.getWidth() ) / (farneback.getWidth() * farneback.getHeight())));
-                
-                ofVec2f dst = farneback.getFlowPosition(x, y);
-                    // ofLine(ofVec2f(x,y), farneback.getFlowPosition(x, y));
-                
-                ofQuaternion srcX, srcY, dstX, dstY, spinQuat;
-
-                srcX.makeRotate(x, 1, 0, 0);
-                srcY.makeRotate(y, 0, 1, 0);
-                
-                dstX.makeRotate(dst.x, 1, 0, 0);
-                dstY.makeRotate(dst.y, 0, 1, 0);
-                
-                spinQuat.makeRotate(ofGetFrameNum(), 0, 1, 0);
-                
-                int fftIndex =  
-                    floor(drawBins.size()
-                          * (x + ( y * farneback.getWidth() ) 
-                                / (farneback.getWidth() * farneback.getHeight())));
-                
-//                        (floor(
-//                          x  * (drawBins.size() 
-//                                / farneback.getWidth()))
-//                        );
-                
-                fftIndex %= farneback.getWidth();
-                
-                ofVec3f center = ofVec3f(0,0,
-                                sphereRadius * (3 + sqrt(drawBins[fftIndex])));
-                
-                ofVec3f srcPt = srcX * srcY * spinQuat * center;
-                ofVec3f dstPt = dstX * dstY * spinQuat * center;
-                
-                srcPt += ofVec2f(ofRandom(-strokeRandom,strokeRandom),ofRandom(-strokeRandom,strokeRandom));
-                dstPt += ofVec2f(ofRandom(-strokeRandom,strokeRandom),ofRandom(-strokeRandom,strokeRandom));
-                
-                ofSetColor(srcPt.distanceSquared(dstPt));
-                ofSetLineWidth(srcPt.distanceSquared(dstPt) * panel.getValueF("lineWidth"));
-                ofLine(srcPt, dstPt);
-                
-                
-                ofSetLineWidth(1);
-                
-                ofPopMatrix();
-                
+    //glEnable(GL_ALPHA_TEST);
+	//glDisable(GL_DEPTH_TEST);
+    if(attract) {
+        attractMode();
+    } else {
+        if(debug) {
+        ofSetHexColor(0x123456);
+//        anchor1.draw();
+//        anchor2.draw();
+        for(int i=0; i<boxes.size(); i++) {
+            ofFill();
+        ofSetHexColor(0x123456);
+            homeBase[i].draw();
+            ofSetHexColor(0xBF2545);
+            boxes[i].draw();
+        }
+        
+        // draw the ground
+        box2d.drawGround();
+        for(int i = 0; i < contourFinder.size(); i++) {
+            ofPoint center = toOf(contourFinder.getCenter(i));
+            
+            float depth;
+            if(kinect.isConnected())
+                depth = kinect.getDistanceAt(center)*.1;
+            else depth = 1.0;
+            
+            ofEllipse((center.x/640) * 1024,100, depth,depth);
+        }
+        drawCamDebug();
+        }
+        else {
+            shader.begin();
+            if(contourFinder.size() >= 1)
+                shader.setUniform2f("push1", (float)contourFinder.getCenter(0).x, (float)contourFinder.getCenter(0).y);
+            if(contourFinder.size() >= 2)
+                shader.setUniform2f("push2", (float)contourFinder.getCenter(1).x, (float)contourFinder.getCenter(1).y );
+            if(contourFinder.size() >= 3)
+                shader.setUniform2f("push3", (float)contourFinder.getCenter(2).x, (float)contourFinder.getCenter(2).y );
+            if(contourFinder.size() >= 4)
+                shader.setUniform2f("push4", (float)contourFinder.getCenter(3).x, (float)contourFinder.getCenter(3).y );
+            for(int i=1;i<boxes.size();i++) {
+                ofSetColor((int)(i*60)%255, (int)(ofGetElapsedTimeMillis()/1000)%255,(int)(i*20)%255);
+               float dist;
+//                if(i==0)
+//                    dist = anchor1.getPosition().distance(boxes[i].getPosition());
+//                else dist = boxes[i].getPosition().distance(boxes[i-1].getPosition());
+                ofRect(boxes[i-1].getPosition().x, 0, boxes[i].getPosition().x, ofGetHeight());
+            }
+            shader.end();
+            ofSetColor(255);
+            for(int i=0;i<scenes.size();i++) {
+                scenes[i].draw();
             }
         }
-    
-    for(int i=1;i<brush.size();i++) {
-        ofPushMatrix();
-        
-        ofQuaternion srcX, srcY, dstX, dstY, spinQuat;
-        
-        int x = brush[i].x;
-        int y = brush[i].y;
-        int x2 = brush[i-1].x;
-        int y2 = brush[i-1].y;
-        
-        srcX.makeRotate(x, 1, 0, 0);
-        srcY.makeRotate(y, 0, 1, 0);
-        
-        dstX.makeRotate(x2, 1, 0, 0);
-        dstY.makeRotate(y2, 0, 1, 0);
-        
-        spinQuat.makeRotate(ofGetFrameNum(), 0, 1, 0);
-        
-        ofVec3f center = ofVec3f(0,0,
-                                 sphereRadius);
-        
-        ofVec3f srcPt = srcX * srcY * spinQuat * center;
-        ofVec3f dstPt = dstX * dstY * spinQuat * center;
-        
-        srcPt += ofVec2f(ofRandom(-strokeRandom,strokeRandom),ofRandom(-strokeRandom,strokeRandom));
-        dstPt += ofVec2f(ofRandom(-strokeRandom,strokeRandom),ofRandom(-strokeRandom,strokeRandom));
-        
-        ofSetColor(255, brush.getCentroid2D().x/2,brush.getCentroid2D().y/2);
-        ofSetLineWidth(srcPt.distanceSquared(dstPt) * panel.getValueF("lineWidth"));
-        ofLine(srcPt, dstPt);
-        
-        
-        ofSetLineWidth(1);
-        
-        ofPopMatrix();
-   
     }
+    
+    
+    glDisable(GL_ALPHA_TEST);
+    glDisable(GL_DEPTH_TEST);
+}
+
+void testApp::attractMode() {
+    glDisable(GL_BLEND);
+    ofPushMatrix();
+    ofPushMatrix();
+    // ofTranslate(ofGetWidth()/2-rectWidth/2,ofGetHeight()/2-rectHeight/2);
+    ofSetColor(0);
+    ofRect(0,0,ofGetWidth(),ofGetHeight());
+    ofPopMatrix();
+    ofPushMatrix();
+    ofTranslate(0, ofGetHeight()/2);
+    shader2.begin();
+    shader2.setUniform2f("mouse",ofGetMouseX(),ofGetMouseY());
+    shader2.setUniform1f("dist", ofGetMouseX()/ofGetWidth() );
+    shader2.setUniform1f("time", ofGetElapsedTimef());
+    ofSetColor(255);
+    ofPushMatrix();
+    ofScale(1.2,1);
+    int trans = (int)(ofGetElapsedTimeMillis()/100)%60;
+    
+    if(trans <= 10)
+        font.drawStringAsShapes("ACCESSIBILITY", 0, 0);
+    if(trans >= 10 && trans <= 20)
+        font.drawStringAsShapes("CITIZEN", 0, 0);
+    if(trans >= 20 && trans <= 30)
+        font.drawStringAsShapes("CULTURE", 0, 0);
+    if(trans >= 30 && trans <= 40)
+        font.drawStringAsShapes("CONTROL", 0, 0);
+    if(trans >= 40 && trans <= 50)
+        font.drawStringAsShapes("MAKE", 0, 0);
+    if(trans >= 50 && trans <= 60)
+        font.drawStringAsShapes("BOLD", 0, 0);
+    
+    ofPopMatrix();
+    shader2.end();
+    
+    ofSetColor(255);
+    
+    ofTranslate(ofGetWidth()-500,0);
+    ofPushMatrix();
+    ofScale(panel.getValueF("idScale"),1);
+    ofTranslate(-ofGetWidth()/2+100,-ofGetHeight()/2+panel.getValueF("idPos"));
+    for(int i=1;i<boxes.size();i++) {
+        ofSetColor((int)(i*60)%255, (int)(ofGetElapsedTimeMillis()/1000)%255,(int)(i*20)%255);
+        float dist;
+        ofRect(boxes[i-1].getPosition().x, boxes[i].getPosition().y, boxes[i].getPosition().y,  boxes[i].getPosition().y);
+    }
+    ofPopMatrix();
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_ONE, GL_DST_ALPHA);  
+    ofSetColor(255);
+    font.drawStringAsShapes("SHIFT", 0, 0);
+    glDisable(GL_BLEND);
+    
+    ofPopMatrix();
+    
+    
+    
+    ofPopMatrix();
+}
+
+void testApp::drawCamDebug() {
     
     ofPushMatrix();
-    ofRotateY(ofGetFrameNum());
-        //glEnable(GL_DEPTH_TEST);
-    glEnable(GL_TEXTURE_2D);
-    ofDisableArbTex();
-    ofFill();       ofSetColor(maxValue*255,10);
-    
-   // tex.getTextureReference().bind();
-    
-    toon.begin();
-    toon.setUniform2f("center",tex.getWidth()/2, tex.getHeight()/2);
-    toon.setUniform1i("tex",0 );   
-    
-    toon.setUniform1f("sigma", 0.33f); 
-    toon.setUniform1f("blurSize", 0.1f);
-    toon.setUniform1f("k", 0.06f);
-    
-        //    ofSphere(0, 0, 0, sphereRadius);
-    
-    quadric = gluNewQuadric();
-    gluQuadricTexture(quadric, GL_TRUE);
-    gluQuadricNormals(quadric, GLU_SMOOTH);
-    gluSphere(quadric, sphereRadius * (2 * maxValue), 100, 100);
-    toon.end();
-    
-   // tex.getTextureReference().unbind();
-    glDisable(GL_TEXTURE_2D);
-    ofEnableArbTex();
-    ofPopMatrix();
-    ofPopMatrix();
-    
-            //  tex.getTextureReference().bind();
-        
-        toon.begin();
-        mesh.draw();
-        mesh.drawWireframe();
-        
-            //            toon.end();
-            // tex.getTextureReference().unbind();
-        
-            //    camera.end();
-    
-        for(int i=0; i<circles.size(); i++) {
-                //            ofSetColor(((i/circles.size())*255)%255,255,255);
-            
-            ofFill();
-            ofSetColor(sqrt(drawBins[i])*255,sqrt(drawBins[i])*255,sqrt(drawBins[i])*255);
-            ofCircle(circles[i].getPosition().x, circles[i].getPosition().y, circles[i].getRadius() * (1 + sqrt(drawBins[i])));
-            
-            primary.getSmoothed(panel.getValueI("smoothed")*(sqrt(drawBins[i])),0).draw();
-            
-        }   
-            toon.end();
-
-    ofPopMatrix();
-    glDisable(GL_DEPTH_TEST);
-    /******************************
-            DEBUG LIKE A MOFO
-     ******************************/
-    if(debug) {
-        soundMutex.lock();
-        drawBins = middleBins;
-        soundMutex.unlock();
+    ofTranslate(ofGetWidth()/2, 0);
+    ofScale(.5,.5);
         ofSetColor(255);
-        ofPushMatrix();
-        ofTranslate(16, 16);
-        if(kinect.isConnected())
-            kinect.drawDepth(plotHeight+10,10,320,240);
-        else img.draw(plotHeight+10,10,320,240);
-        tex.draw(plotHeight+10+320,10,320,240);
-        curFlow->draw(plotHeight+10,10,320,240);
-        ofDrawBitmapString("Frequency Domain", 0, 0);
-        plot(drawBins, -plotHeight, plotHeight / 2);
+        if(!kinect.isConnected()) cam.draw(0, 0);
+        else kinect.drawDepth(0,0);
         
-        ofSetColor(225);
-        ofTranslate(10,350);
-        ofDrawBitmapString("current flow: x" + ofToString(farneback.getTotalFlow().x) + " y" + ofToString(farneback.getTotalFlow().y), 4,18 );
-        ofTranslate(0,18);    
-        ofDrawBitmapString("Overall flow: x" + ofToString(overallRotation.x) + " y" + ofToString(overallRotation.y), 4,18 );
-
-        ofPopMatrix();
+        contourFinder.draw();
+        
+        for(int i = 0; i < contourFinder.size(); i++) {
+            ofPoint center = toOf(contourFinder.getCenter(i));
+            
+            float depth;
+            if(kinect.isConnected())
+                depth = kinect.getDistanceAt(center);
+            else depth = 0;
+            
+            ofPushMatrix();
+            ofTranslate(center.x, center.y);
+            int label = contourFinder.getLabel(i);
+            ofDrawBitmapString(ofToString(depth*depthMulti), 0, 12);
+            ofVec2f velocity = toOf(contourFinder.getVelocity(i));
+            ofScale(5, 5);
+            ofLine(0, 0, velocity.x, velocity.y);
+            ofPopMatrix();
     }
     
+//    thresh.draw(thresh.width, 0, 2, 256,192);
+    ofPopMatrix(); // For panel
 }
 
-void testApp::plot(vector<float>& buffer, float scale, float offset) {
-    ofNoFill();
-    int n = buffer.size();
-    ofRect(0, 0, n, plotHeight);
-    glPushMatrix();
-    glTranslatef(0, plotHeight / 2 + offset, 0);
-    ofBeginShape();
-    for (int i = 0; i < n; i++) {
-        ofVertex(i, buffer[i] * scale);
-    }
-    ofEndShape();
-    glPopMatrix();
-}
-
-
-void testApp::audioReceived(float* input, int bufferSize, int nChannels) {	
- 
-
-		memcpy(&audioBuffer[0], input, sizeof(float) * bufferSize);
-		
-		maxValue = 0;
-		for(int i = 0; i < bufferSize; i++) {
-        if(abs(audioBuffer[i]) > maxValue) {
-            maxValue = abs(audioBuffer[i]);
-        }
-		}
-		for(int i = 0; i < bufferSize; i++) {
-        audioBuffer[i] /= maxValue;
-		}
-
-    fft->setSignal(&audioBuffer[0]);
-    
-    float* curFft = fft->getAmplitude();
-    memcpy(&audioBins[0], curFft, sizeof(float) * fft->getBinSize());
-    
-    for(int i = 0; i < fft->getBinSize(); i++) {
-        if(abs(audioBins[i]) > maxValue) {
-            maxValue = abs(audioBins[i]);
-        }
-    }
-    for(int i = 0; i < fft->getBinSize(); i++) {
-        audioBins[i] /= maxValue;
-    }
-    
-    soundMutex.lock();
-    middleBuffer = audioBuffer;
-    middleBins = audioBins;
-    soundMutex.unlock();
-
-}
 
 //--------------------------------------------------------------
 void testApp::keyPressed(int key){
     switch(key) {
         case ' ':
-            if(debug) debug=false;
-            else debug=true;
+            scenes.clear();
+            resetCounter = 100;
+//            if(!attract) attract = true;
+//            else attract = false;
             break;
-        case 's':
-            mic.start();
+        case 'i':
+            if(!attract) attract = true;
+            else attract = false;
             break;
-        case 'a':
-            mic.stop();
+        case 'd':
+            if(!debug) debug = true;
+            else debug = false;
             break;
     }
 }
+
 
 //--------------------------------------------------------------
 void testApp::keyReleased(int key){
@@ -569,4 +483,78 @@ void testApp::gotMessage(ofMessage msg){
 //--------------------------------------------------------------
 void testApp::dragEvent(ofDragInfo dragInfo){ 
 
+}
+
+//--------------------------------------------------------------
+//--------------------------------------------------------------
+//--------------------------------------------------------------
+//--------------------------------------------------------------
+//--------------------------------------------------------------
+//--------------------------------------------------------------
+//--------------------------------------------------------------
+Scene::Scene() {
+
+}
+
+Scene::~Scene() {
+    video.closeMovie();
+}
+
+void Scene::setup(string path, ofxBox2dJoint _joint, int _x, int _w, int select) {
+    video.setUseTexture(true);
+    if(video.isLoaded()) video.close();
+    video.setLoopState(OF_LOOP_NONE);
+    video.setPixelFormat(OF_PIXELS_RGB);
+    video.setVolume(1.0);
+    video.loadMovie("movie/" + ofToString(select) + ".mov");
+    video.play();
+    done = false;
+    joint = _joint;
+    ofLog() << "Playing movie/" << ofToString(select) << ".mov";
+    
+    x = _x;
+    w = 640;   
+    pos = ofVec2f(x,50);
+}
+
+void Scene::update(){
+//    if(!video.isPlaying() && !done) video.play();
+    if(video.isLoaded()) video.update();
+    else if(!done) { 
+        setup("",joint,x,640,ofRandom(0,18));
+      //  ofLog() << "No video loaded";
+    } else {
+        joint.destroy();
+        video.close();
+    }
+    
+//    ofLog() << "Cur Frame " << ofToString(video.getCurrentFrame()) << " of " << ofToString(video.getTotalNumFrames());
+    if(video.getCurrentFrame() >= video.getTotalNumFrames()-50 ) {
+        video.close();
+        done = true;
+        ofLog() << "Closing movie.";
+    }
+}
+
+void Scene::draw() {
+//    video.draw(x,0);
+    ofPushMatrix();
+    ofTranslate(x,0);
+    if(video.getCurrentFrame() < 100) {
+        ofScale( 1,video.getCurrentFrame()*.01);
+    } else if(video.getCurrentFrame()+100 >= video.getTotalNumFrames()) {
+        float reduce = (video.getTotalNumFrames()-video.getCurrentFrame())*.01;
+        ofScale( 1, reduce );
+    } else ofScale(1,1);
+    ofSetColor(0);
+   ofRect(-10,-10,660,ofGetHeight()+20);
+    ofSetColor(255);
+    video.getTextureReference().draw(0,300,640,400);
+    ofPopMatrix();
+}
+
+
+bool Scene::isDone() {
+  //  return video.isPlaying(); 
+   return done;
 }

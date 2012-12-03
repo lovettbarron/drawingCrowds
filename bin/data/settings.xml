@@ -1,63 +1,15 @@
-<smoothed>
-    <val_0>7</val_0>
-</smoothed>
-<impact>
-    <val_0>0</val_0>
-</impact>
-<density>
-    <val_0>10</val_0>
-</density>
-<bounce>
-    <val_0>2</val_0>
-</bounce>
-<friction>
-    <val_0>2</val_0>
-</friction>
-<attr>
-    <val_0>1</val_0>
-</attr>
-<sphereRad>
-    <val_0>429.222</val_0>
-</sphereRad>
-<lineWidth>
-    <val_0>0</val_0>
-</lineWidth>
-<strokeRandom>
-    <val_0>10</val_0>
-</strokeRandom>
-<pyrScale>
-    <val_0>0.5</val_0>
-</pyrScale>
-<levels>
-    <val_0>4</val_0>
-</levels>
-<winsize>
-    <val_0>8</val_0>
-</winsize>
-<iterations>
-    <val_0>2</val_0>
-</iterations>
-<polyN>
-    <val_0>7</val_0>
-</polyN>
-<polySigma>
-    <val_0>1.5</val_0>
-</polySigma>
-<kAngle>
-    <val_0>0</val_0>
-</kAngle>
-<texDelay>
-    <val_0>10</val_0>
-</texDelay>
 <maxThreshold>
-    <val_0>15</val_0>
+    <val_0>181.333</val_0>
 </maxThreshold>
 <minAreaRadius>
-    <val_0>7</val_0>
+    <val_0>0</val_0>
 </minAreaRadius>
 <maxAreaRadius>
     <val_0>100</val_0>
 </maxAreaRadius>
+<DepthMultiplier>
+    <val_0>1</val_0>
+</DepthMultiplier>
 <learningTime>
     <val_0>900</val_0>
 </learningTime>
@@ -67,3 +19,9 @@
 <resetBg>
     <val_0>0</val_0>
 </resetBg>
+<OverlapDistance>
+    <val_0>500</val_0>
+</OverlapDistance>
+<angle>
+    <val_0>0</val_0>
+</angle>

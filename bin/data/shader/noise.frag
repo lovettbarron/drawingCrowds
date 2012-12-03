@@ -1,84 +1,109 @@
-uniform sampler2D tex;
+varying vec3 normal;
 
-void main(void) {
-    gl_FragColor = vec4(texture2D(tex, TexCoord[0]).rgb, .4);
+void main()
+{
+	float intensity;
+	vec4 color;
+	vec3 n = normalize(normal);
+	intensity = dot(vec3(gl_LightSource[0].position),n);
+
+	if (intensity > 0.95)
+		color = vec4(1.0,0.5,0.5,1.0);
+	else if (intensity > 0.5)
+		color = vec4(0.6,0.3,0.3,1.0);
+	else if (intensity > 0.25)
+		color = vec4(0.4,0.2,0.2,1.0);
+	else
+		color = vec4(0.2,0.1,0.1,1.0);
+	gl_FragColor = color;
+
 }
 
 
-
-/*uniform sampler2D tex;
-uniform vec2 uv;
-const float sampleDist = 1.0;
-const float sampleStrength = 2.2; 
-
-void main(void)
-{
-    float samples[10];
-    samples[0] = -0.08;
-    samples[1] = -0.05;
-    samples[2] = -0.03;
-    samples[3] = -0.02;
-    samples[4] = -0.01;
-    samples[5] =  0.01;
-    samples[6] =  0.02;
-    samples[7] =  0.03;
-    samples[8] =  0.05;
-    samples[9] =  0.08;
-    
-    vec2 dir = 0.5 - uv; 
-    float dist = sqrt(dir.x*dir.x + dir.y*dir.y); 
-    dir = dir/dist; 
-    
-    vec4 color = texture2D(tex,uv); 
-    vec4 sum = color;
-    
-    for (int i = 0; i < 10; i++)
-    sum += texture2D( tex, uv + dir * samples[i] * sampleDist );
-    
-    sum *= 1.0/11.0;
-    float t = dist * sampleStrength;
-    t = clamp( t ,0.0,1.0);
-    
-    gl_FragColor = mix( color, sum, t );
-} */
-
 /*
-uniform float sigma; 
+uniform float time;
+uniform vec2 mouse;
+uniform vec2 resolution;
 
-uniform float blurSize;
+float sphere(vec3 p)
+{
+	return length(p)-5.;
+}
+//passing time through so it can work w core image.-gt
+float displacement(vec3 p, float time)
+{
+	return sin(1.0*p.x+time)*sin(3.0*p.y+10.0*time)*0.25*sin(7.0*p.z+time);
+}
 
-uniform sampler2D tex; 
+float opDisplace( vec3 p, float time )
+{
+	float d1 = sphere(p);
+    	float d2 = displacement(p, time);
+    	return d1+d2;
+}
 
-const float pi = 3.14159265;
+void main( void ) {
 
-const float numBlurPixelsPerSide = 0.0;
-const vec2  blurMultiplyVec      = vec2(0.0, 0.0);
+	vec2 p = -1. + 2.*gl_FragCoord.xy / resolution.xy;
+	p.x *= resolution.x/resolution.y;
+	
+	//Camera animation
+  vec3 vuv=vec3(0,1,0);//Change camere up vector here
+  vec3 vrp=vec3(0,1,0); //Change camere view here
+  vec3 prp=vec3(sin(time)*8.0,4,cos(time)*8.0); //Change camera path position here
 
-void main() {
+  //Camera setup
+  vec3 vpn=normalize(vrp-prp);
+  vec3 u=normalize(cross(vuv,vpn));
+  vec3 v=cross(vpn,u);
+  vec3 vcv=(prp+vpn);
+  vec3 scrCoord=vcv+p.x*u+p.y*v;
+  vec3 scp=normalize(scrCoord-prp);
+
+  //Raymarching
+  const vec3 e=vec3(0.1,0,0);
+  const float maxd=16.0; //Max depth
+
+  float s=0.1;
+  vec3 c,p1,n;
+
+  float f=1.0;
+  for(int i=0;i<30;i++){
+   // if (abs(s)<.01||f>maxd) break;//eliminating break so I can try out w/ core image.
+    f+=s;
+    p1=prp+scp*f;
+    s=opDisplace(p1, mouse.x);
+  }
+  	
+	//replacing if/else with ternary to try out with apple's "core image"
+	//c=vec3(.2,0.6,0.8);
+	c = vec3(0.0);
+    	n=normalize(
+      	vec3(s-opDisplace(p1-e.xyy, mouse.x),
+           s-opDisplace(p1-e.yxy, mouse.x),
+           s-opDisplace(p1-e.yyx, mouse.x)));
+    	float b=dot(n,normalize(prp-p1));
+    	vec4 tex=vec4((b*c + pow(b,40.0))*(1.0-f*.01),1.0);
+	//tex += vec4(0.99,0.66,0.2,1.0)/f*2.0;
+	vec4 background=vec4(0.0,0.0,0.0,1.0);
+	
+	gl_FragColor=(f<maxd)?tex:background;
+	
     
-    // Incremental Gaussian Coefficent Calculation (See GPU Gems 3 pp. 877 - 889)
-    vec3 incrementalGaussian;
-    incrementalGaussian.x = 1.0 / (sqrt(2.0 * pi) * sigma);
-    incrementalGaussian.y = exp(-0.5 / (sigma * sigma));
-    incrementalGaussian.z = incrementalGaussian.y * incrementalGaussian.y;
-    
-    vec4 avgValue = vec4(0.0, 0.0, 0.0, 0.0);
-    float coefficientSum = 0.0;
-    
-    // Take the central sample first...
-    avgValue += texture2D(tex, gl_TexCoord[0].xy) * incrementalGaussian.x;
-    coefficientSum += incrementalGaussian.x;
-    incrementalGaussian.xy *= incrementalGaussian.yz;
-    
-    // Go through the remaining 8 vertical samples (4 on each side of the center)
-    for (float i = 1.0; i <= numBlurPixelsPerSide; i++) { 
-        avgValue += texture2D(tex, gl_TexCoord[0].xy - i * blurSize * 
-        blurMultiplyVec) * incrementalGaussian.x;         
-        avgValue += texture2D(tex, gl_TexCoord[0].xy + i * blurSize * 
-        blurMultiplyVec) * incrementalGaussian.x;         
-        coefficientSum += (2.0 * incrementalGaussian.x);
-        incrementalGaussian.xy *= incrementalGaussian.yz;
-    }
-    
-    gl_FragColor = texture2D(tex, TexCoord[0]) * (avgValue / coefficientSum);
-} */
+    float intensity;
+	vec4 color;
+	vec3 n = normalize(normal);
+	intensity = dot(vec3(gl_LightSource[0].position),n);
+
+	if (intensity > 0.95)
+		color = vec4(1.0,0.5,0.5,1.0);
+	else if (intensity > 0.5)
+		color = vec4(0.6,0.3,0.3,1.0);
+	else if (intensity > 0.25)
+		color = vec4(0.4,0.2,0.2,1.0);
+	else
+		color = vec4(0.2,0.1,0.1,1.0);
+	gl_FragColor = color;
+
+
+}*/

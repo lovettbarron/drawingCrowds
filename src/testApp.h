@@ -2,18 +2,45 @@
 
 #include "ofMain.h"
 #include "ofxCv.h"
-#include "ofxAutoControlPanel.h"
 #include "ofxKinect.h"
+#include "ofxAutoControlPanel.h"
 #include "ofxBox2d.h"
-#include "ofxFft.h"
+
+
+
+class Scene {
+    
+public:
+    
+    Scene();
+    ~Scene();
+    void setup(string path, ofxBox2dJoint _joint, int _x, int _w, int select);
+    void setPoint(ofVec2f * _pnt);
+    void update();
+    void draw();
+    bool isDone();
+    ofxBox2dJoint joint;
+    ofVec2f pos;
+    int x,w;
+    ofVideoPlayer video;
+    bool done;
+private:
+};
+
 
 class testApp : public ofBaseApp{
-
+    
 	public:
 		void setup();
 		void update();
 		void draw();
-    void exit();
+        void exit();
+    
+        void attractMode();
+        void setupGUI();
+        void setupCamera();
+        void updateCamera();
+        void drawCamDebug();
 
 		void keyPressed  (int key);
 		void keyReleased(int key);
@@ -24,59 +51,46 @@ class testApp : public ofBaseApp{
 		void windowResized(int w, int h);
 		void dragEvent(ofDragInfo dragInfo);
 		void gotMessage(ofMessage msg);
-		
-    void audioReceived(float* input, int bufferSize, int nChannels);
-    void plot(vector<float>& buffer, float scale, float offset);
-    ofPolyline getContour(ofxCv::ContourFinder * _contourFinder);
-    ofPolyline brush;
     
-private:
-    // Vectors
-    ofVec2f overallRotation;
-    ofxBox2d box2d;
-    vector <ofxBox2dCircle> circles;
-    vector <ofxBox2dRect> boxes;
-    ofPolyline primary;
-    ofTessellator tess;
-    ofMesh mesh;
-    ofShader toon;
-    ofSoundStream mic;
-    ofxAutoControlPanel panel;
-    
-    GLUquadricObj *quadric;
-    
-    // Cam
-    ofxKinect kinect;
-    ofVideoGrabber cam;
-    ofxCv::ContourFinder contourFinder;
-    ofImage img, imgBg;
-    cv::Mat imgMat;
-    ofxCv::FlowFarneback farneback;    
-    ofxCv::Flow* curFlow;
-    ofFbo tex;
-    ofCamera camera;
-    int sphereRadius;
-    int density, delay;
-    
-    //FFT
-    int plotHeight, bufferSize;
-    vector <float> left;
-		vector <float> right;
-		vector <float> volHistory;
-		
-		int 	bufferCounter;
-		int 	drawCounter;
-    float maxValue;
-    int strokeRandom;
-		float smoothedVol;
-		float scaledVol;
-
-    ofxFft* fft;
-    ofColor clr;
-    
-    ofMutex soundMutex;
-    vector<float> drawBins, middleBins, audioBins;
-    vector<float> drawBuffer, middleBuffer, audioBuffer;
-    // Debug
-    bool debug;
+        int movieSelector, numOfMovies;
+        ofShader shader, shader2;
+        int rectWidth, rectHeight;
+        ofTrueTypeFont font;
+        bool attract, debug;
+        float playDist;
+        float depthMulti;
+    int resetCounter;
+        
+        // Kinect
+        ofxKinect kinect;
+        ofVideoGrabber cam;
+        
+        // Video
+        vector      <ofVideoPlayer>     video;
+        vector      <Scene>             scenes;
+        vector<ofVec3f> points;
+        ofTrueTypeFont raleway;
+        
+        ofxAutoControlPanel panel;
+        ofImage thresh;
+        ofImage bgThresh;
+        ofImage kDepth;
+        cv::Mat kDepthMat;
+        cv::Mat threshMat;
+        
+        ofxCv::RunningBackground background;
+        int panelWidth; // Debugging away from img
+        int angle; // Kinect angle
+        ofPolyline brush;
+        float threshold;
+        ofxCv::ContourFinder contourFinder;
+        
+        //Box2d
+        ofxBox2d						box2d;			  //	the box2d world
+        ofxBox2dCircle					anchor1,anchor2;  //	fixed anchor
+        vector		<ofxBox2dJoint>		joints;		
+        vector      <ofxBox2dJoint>     vidJoint;
+        vector		<ofxBox2dCircle>		boxes;			  //	defalut box2d rects
+        vector      <ofxBox2dCircle>    homeBase;
+    private:
 };
