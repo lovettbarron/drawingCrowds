@@ -21,6 +21,7 @@ public:
     void lightUpdate();
     void setStrength(float _power);
     void setLocation(ofVec3f _position);
+    ofVec3f getLocation();
     
     void drawArm(int num);
     void debug();
@@ -37,6 +38,7 @@ private:
     int width;
     int height;
     float power; // 1.0 for light strength
+    float lin2log(float _lin);
     ofArduino * arduino;
     vector<float> leds;
     vector<unsigned char> buffer;
@@ -66,6 +68,25 @@ private:
     int height, width;
     ofVec3f position;
     int personId;
+    
+};
+
+class Camera {
+    
+public:
+    Camera(ofVec3f _position, int _id, ofxKinect * _kinct);
+    ~Camera();
+    void draw();
+    void update();
+    void debug();
+    void setLocation(ofVec3f _position);
+    ofVec3f getLocation();
+private:
+    ofxKinect * kinect;
+    int height, width, depth;
+    ofVec3f position;
+    int personId;
+    
     
 };
 
@@ -109,6 +130,7 @@ public:
     // Lights
     vector <Light*> lights;
     vector <People*> people;
+    vector <Camera*> cameras;
     vector<ofVec3f> points;
     
     Light * testLight;

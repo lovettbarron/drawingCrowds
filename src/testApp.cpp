@@ -29,7 +29,7 @@ void testApp::setup(){
     
     camera.disableMouseInput();
     
-    numberOfLights = 2;
+    numberOfLights = 6;
     room = ofVec3f(1000,400,500);
     
     for(int i=0;i<numberOfLights;i++) {
@@ -39,9 +39,12 @@ void testApp::setup(){
     for(int i=0;i<10;i++) {
         people.push_back( new People( ofVec3f(ofRandom(0,room.x),0,ofRandom(0,room.z)),i));
     }
-    
     setupGUI();   
     setupCamera();
+    for(int i=0;i<1;i++) {
+        cameras.push_back( new Camera( ofVec3f(), 0, &kinect) );
+    }
+    
     setupArduino();
 }
 
@@ -79,18 +82,23 @@ void testApp::exit() {
 }
 
 void testApp::setupGUI() {
-    panelWidth = 200;
-    panel.setup(panelWidth, 800);
+    panelWidth = 300;
+    panel.setup(panelWidth, 1024);
     
     panel.addPanel("PointCloud");
     panel.addSlider("cameraDistance",700,0,1000,false);
+    panel.addLabel("Camera");
+    panel.addSlider("cam1x", 0, 0., 1., false);
+    panel.addSlider("cam1y", 0, 0., 1., false);
+    panel.addSlider("cam1z", 0, 0., 1., false);
     
     for( int i=0;i<numberOfLights;i++) {
+        panel.addPanel("Light" + ofToString(i));    void setLocation(ofVec3f _position);
         panel.addLabel("Light" + ofToString(i) );
         panel.addSlider("l" + ofToString(i) + "pwr", 1., 0., 1., false);
-        panel.addSlider("l" + ofToString(i) + "x", ofRandom(0,1), 0., 1., false);
-        panel.addSlider("l" + ofToString(i) + "y", ofRandom(0,1), 0., 1., false);
-        panel.addSlider("l" + ofToString(i) + "z", ofRandom(0,1), 0., 1., false);
+        panel.addSlider("l" + ofToString(i) + "x", lights[i]->getLocation().x / room.x, 0., 1., false);
+        panel.addSlider("l" + ofToString(i) + "y", lights[i]->getLocation().y / room.y, 0., 1., false);
+        panel.addSlider("l" + ofToString(i) + "z", lights[i]->getLocation().z / room.z, 0., 1., false);
     }
     
     panel.addPanel("Tracking Bits");
@@ -173,13 +181,13 @@ void testApp::updateCamera() {
         }
     } else {
         kinect.update();
-        if(kinect.isFrameNew()) {
-            kDepthMat = toCv(kinect.getDepthPixelsRef());
-            blur(kDepthMat, 10);
-            kDepthMat -= threshMat;
-            contourFinder.findContours(kDepthMat);
-//            brush = getContour(&contourFinder);
-        }
+//        if(kinect.isFrameNew()) {
+//            kDepthMat = toCv(kinect.getDepthPixelsRef());
+//            blur(kDepthMat, 10);
+//            kDepthMat -= threshMat;
+//            contourFinder.findContours(kDepthMat);
+////            brush = getContour(&contourFinder);
+//        }
         
     }
 }
@@ -193,11 +201,21 @@ void testApp::update(){
 	ofVec2f mouse(ofGetMouseX(), 5);
 	float minDis = ofGetMousePressed() ? 300 : 200;
     
-    camera.setTarget(ofVec3f(0,0,40));
-    camera.setPosition(800, 100, 400);
+    camera.setTarget(ofVec3f(room.x/2,room.y/2,room.z/2));
+    camera.setPosition(room.x, room.y, room.z);
     camera.setDistance(panel.getValueF("cameraDistance"));
 //    for(int i=0;i<lights.size();i++) {
 //    }
+    
+    for(int i=0;i<cameras.size();i++) {
+        ofVec3f camPosition(
+            panel.getValueF("cam1x") * room.x,
+            panel.getValueF("cam1y") * room.y,
+            panel.getValueF("cam1z") * room.z
+        );
+        cameras[i]->setLocation(camPosition);
+        cameras[i]->update();
+    }
     
     for(int i=0;i<people.size();i++) {
         people[i]->update();
@@ -220,7 +238,7 @@ void testApp::updateSettings(){
 
 //--------------------------------------------------------------
 void testApp::draw(){
-    ofBackgroundGradient(ofColor(0),ofColor(10) );    
+    ofBackgroundGradient(ofColor(200),ofColor(170) );    
     
     glEnable(GL_DEPTH_TEST);
     
@@ -230,7 +248,6 @@ void testApp::draw(){
             ofRotateY(ofRadToDeg(  ofGetElapsedTimeMillis()*.0001 ));
     
         ofSetColor(200);
-        ofSphere(0, 0, 10, 10);
         
 //        testLight->draw();
         for(int i=0;i<lights.size();i++) {
@@ -239,8 +256,13 @@ void testApp::draw(){
         for(int i=0;i<people.size();i++) {
             people[i]->draw();
         }
+    
+        for(int i=0;i<cameras.size();i++) {
+            cameras[i]->draw();
+        }
         ofPushMatrix();
             ofSetColor(100,100,100);
+            ofTranslate(room.x/2,0,room.z/2);
             ofScale(room.x,0,room.z);
             ofBox(1);
         ofPopMatrix();
@@ -264,7 +286,7 @@ void testApp::draw(){
             depth = kinect.getDistanceAt(center)*.1;
         else depth = 1.0;
         
-        ofEllipse((center.x/640) * ofGetWidth(),100, depth,depth);
+//        ofEllipse((center.x/640) * ofGetWidth(),100, depth,depth);
     }
     drawCamDebug();
     }
@@ -429,14 +451,14 @@ void Light::draw() {
 void Light::lightUpdate() {
 //    int per = (leds.size() / ledCount) * power;
     int per = floor(( (leds.size()/numOfArms) * (1-power)) + 1);
-    ofLog() << ofToString(per);
+    //ofLog() << ofToString(per);
 //    for(int i=0;i<leds.size();i+=ofRandom(per*.5,per)) {
 //        leds[i] = ofRandom(0,1);//ofNoise(leds[i]);
 //    }
 //    if(!per) per = leds.size() / numOfArms;
     for(int i=0;i<leds.size();i++) {
         if(i%per == 0) leds[i] = ofRandom(0,1);
-        else if (ofRandom(0,per) == 0) leds[i] = ofRandom(0,1);
+        else if (ofRandom(0,4) == 0) leds[i] = ofRandom(0,1);
         else leds[i] = 0;
     }
 }
@@ -488,11 +510,15 @@ void Light::setLocation(ofVec3f _position) {
     position = _position;
 }
 
+ofVec3f Light::getLocation() {
+    return position;
+}
+
 void Light::drawArm(int num) {
     ofSetColor(255);
     ofPushMatrix();
         ofTranslate(width/2,height/2,width/2);
-        ofSetColor(147,100,100);
+        ofSetColor(56,19,11);
         ofPushMatrix();
             ofScale(width,height, width);
             ofBox(1);
@@ -534,6 +560,9 @@ void Light::debug() {
     glEnable(GL_DEPTH_TEST);
 }
 
+float Light::lin2log(float _lin) {
+    return log10(_lin);
+}
 
 
 //--------------------------------------------------------------
@@ -567,4 +596,61 @@ void People::draw() {
     ofSetColor(127,50,50);
     ofSphere(1);
     ofPopMatrix();
+}
+
+
+
+//--------------------------------------------------------------
+//--------------------------------------------------------------
+//--------------------------------------------------------------
+//--------------------------------------------------------------
+//--------------------------------------------------------------
+//--------------------------------------------------------------
+//--------------------------------------------------------------
+
+
+Camera::Camera(ofVec3f _position, int _id, ofxKinect * _kinect) {
+    position = _position;
+    personId = _id;
+    kinect = _kinect;
+    width = 100;
+    height = 10;
+    depth = 10;
+    
+}
+
+Camera::~Camera() {
+    
+}
+
+void Camera::update() {
+
+}
+
+void Camera::draw() {
+    ofPushMatrix();
+    ofTranslate(position);
+    ofScale(width,height,depth);
+    ofSetColor(127,50,50);
+    ofSetColor(0);
+    ofBox(1);
+    if(kinect->isFrameNew()) {
+        ofSetColor(255);
+        for(int y=0;y<kinect->getHeight();y++) {
+            for(int x=0;y<kinect->getWidth();x++) {
+                int ptr = x + (y * width);
+                ofRect(x*10,y*10,kinect->getDepthPixelsRef()[ptr], 10,10);
+            }
+        }
+    }
+        
+    ofPopMatrix();
+}
+
+void Camera::setLocation(ofVec3f _position) {
+    position = _position;
+}
+
+ofVec3f Camera::getLocation() {
+    return position;
 }
