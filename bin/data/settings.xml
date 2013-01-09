@@ -20,8 +20,14 @@
     <val_0>0</val_0>
 </resetBg>
 <OverlapDistance>
-    <val_0>500</val_0>
+    <val_0>527.778</val_0>
 </OverlapDistance>
 <angle>
     <val_0>0</val_0>
 </angle>
+<idScale>
+    <val_0>0.361111</val_0>
+</idScale>
+<idPos>
+    <val_0>88.8889</val_0>
+</idPos>

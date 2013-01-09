@@ -5,72 +5,72 @@ using namespace ofxCv;
 
 //--------------------------------------------------------------
 void testApp::setup(){
-    setupGUI();
-    setupCamera();
     ofSetVerticalSync(true);
-    attract = false;
-    debug = false;
-    shader.load("shader/shader");
-    shader2.load("shader/noise");
-    rectWidth = 300;
-    rectHeight = 300;
-    font.loadFont("type/ProximaNova-Extrabold.otf", 127, true, false, true, 0.4, 72);
-    resetCounter = 0;
-    movieSelector = 0;
-    numOfMovies = 19; // Num -1
-    
+//    ofEnableLighting();
+ 
     box2d.init();
-	box2d.setGravity(0, 10);
+	box2d.setGravity(0, 0);
     box2d.createBounds(0,0,2000,400);
 	box2d.setFPS(10.0);
 	box2d.registerGrabbing();
-	
-    anchor1.setup(box2d.getWorld(), 0, 0, 20);
-    anchor2.setup(box2d.getWorld(), ofGetWidth(), 0, 20);
     
-    playDist = ofGetWidth()/3;
-    
-    int numOfVideos = 15;
-    
-    for (int i=0; i<numOfVideos; i++) {
+    for (int i=0; i<5; i++) {
 		
         ofxBox2dCircle home;
         home.setup(box2d.getWorld(), i*128,100,40);
-        homeBase.push_back(home);
 
 		ofxBox2dCircle circle;
-		circle.setPhysics(9999.0, 0.01, 2.9);
+		circle.setPhysics(9999.0, 0.01 , 2.9);
 		circle.setup(box2d.getWorld(),  i*128,100, 4);
 		boxes.push_back(circle);
 	}
     
-    for (int i=0; i<boxes.size(); i++) {
-      boxes[i].addAttractionPoint(homeBase[i].getPosition(), .9);
-		ofxBox2dJoint joint;
-        
-        
-        
-        joint.setup(box2d.getWorld(), homeBase[i].body, boxes[i].body);		
-        
-//		// if this is the first point connect to the top anchor.
-//		if(i == 0) {
-//			joint.setup(box2d.getWorld(), anchor1.body, boxes[i].body);		
-//                        ofLog() << "Conncted to first anchor";
-//		} else
-//        if(i == boxes.size()-1) {
-//            joint.setup(box2d.getWorld(), boxes[i-1].body, boxes[i].body);
-//            joint.setup(box2d.getWorld(), boxes[i].body, anchor2.body);		        
-//            ofLog() << "Conncted to last anchor";
-//        }
-//		else {
-//			joint.setup(box2d.getWorld(), boxes[i-1].body, boxes[i].body);
-//		}
-        
-		joint.setLength(200);
-        joint.setDamping(.5);
-		joints.push_back(joint);
-	}
-    vidJoint.clear();
+//    testLight = new Light(ofVec3f(0,0,0), 0);
+    
+    camera.disableMouseInput();
+    
+    numberOfLights = 2;
+    room = ofVec3f(1000,400,500);
+    
+    for(int i=0;i<numberOfLights;i++) {
+        lights.push_back( new Light(ofVec3f(ofRandom(0,room.x), room.y, ofRandom(0,room.z) ), i, 10+i, 12+i, &serial) );
+    }
+    
+    for(int i=0;i<10;i++) {
+        people.push_back( new People( ofVec3f(ofRandom(0,room.x),0,ofRandom(0,room.z)),i));
+    }
+    
+    setupGUI();   
+    setupCamera();
+    setupArduino();
+}
+
+void testApp::setupArduino() {
+    
+    // Protocol!
+    // a : armNumber
+    // l : lightNumber
+    // e : End count
+    
+    //eg l1a2:255:255:166:177e LightId 1, arm 2, led 1, led2, led3, end line
+    
+ //   serial.listDevices();
+//	vector <ofSerialDeviceInfo> deviceList = serial.getDeviceList();
+	serial.connect("/dev/tty.usbserial-A900acdV",57600); // Firmata
+    
+}
+
+void testApp::writeArduino() {
+
+//}
+
+    
+    
+    
+    for(int l = 0; l<lights.size();l++) {
+        lights[l]->update();
+//        serial.writeBytes(lights[l]->getBuffer(),lights[l]->getBufferLength());   
+    }
 }
 
 void testApp::exit() {
@@ -81,6 +81,18 @@ void testApp::exit() {
 void testApp::setupGUI() {
     panelWidth = 200;
     panel.setup(panelWidth, 800);
+    
+    panel.addPanel("PointCloud");
+    panel.addSlider("cameraDistance",700,0,1000,false);
+    
+    for( int i=0;i<numberOfLights;i++) {
+        panel.addLabel("Light" + ofToString(i) );
+        panel.addSlider("l" + ofToString(i) + "pwr", 1., 0., 1., false);
+        panel.addSlider("l" + ofToString(i) + "x", ofRandom(0,1), 0., 1., false);
+        panel.addSlider("l" + ofToString(i) + "y", ofRandom(0,1), 0., 1., false);
+        panel.addSlider("l" + ofToString(i) + "z", ofRandom(0,1), 0., 1., false);
+    }
+    
     panel.addPanel("Tracking Bits");
     panel.addLabel("Image Processing");
     panel.addSlider("maxThreshold", 15, 0, 255, true);
@@ -94,9 +106,10 @@ void testApp::setupGUI() {
     panel.addSlider("OverlapDistance", 500, 0,1000,true);
     
     panel.addSlider("idScale",.3,0,1.,false);
-    panel.addSlider("idPos",-500,-500,500,true);
+    panel.addSlider("idPosx",-500,-700,700,true);
+    panel.addSlider("idPosy",-500,-700,700,true);
     
-    panel.addPanel("Kinect");
+    panel.addPanel("Kinect");   
     panel.addSlider("angle", 0, -40, 40, true);
     angle = panel.getValueI("angle");
 }
@@ -180,214 +193,86 @@ void testApp::update(){
 	ofVec2f mouse(ofGetMouseX(), 5);
 	float minDis = ofGetMousePressed() ? 300 : 200;
     
-	for(int i=0; i<boxes.size(); i++) {
-        int personCount=7;
-        if(contourFinder.size()<personCount) personCount = contourFinder.size();
-        for(int j = 0; j < personCount; j++) {
-            ofPoint center = ofPoint(0,0);
-            center = toOf(contourFinder.getCenter(j));
-            float depth = 1.0;
-            if(kinect.isConnected())
-                depth = kinect.getDistanceAt(center)*depthMulti;
-            else depth = 10*depthMulti;
-            
-             boxes[i].addRepulsionForce((center.x/640) * ofGetWidth(),10, depth);
-        }
-		float dis = mouse.distance(boxes[i].getPosition());
-       // float minDis = 10;
-        
-//        ofLog() << "dis" << ofToString(i) << ": " << ofToString(dis);
-//		 boxes[i].addRepulsionForce(mouse.x,mouse.y, 1.0);
+    camera.setTarget(ofVec3f(0,0,40));
+    camera.setPosition(800, 100, 400);
+    camera.setDistance(panel.getValueF("cameraDistance"));
+//    for(int i=0;i<lights.size();i++) {
+//    }
+    
+    for(int i=0;i<people.size();i++) {
+        people[i]->update();
+    }
+    updateSettings();
+    writeArduino();
+}
 
-         // Lets check distances
-//        float distA = boxes[i-1].getPosition().distance(boxes[i].getPosition());
-//        float distB = boxes[i+1].getPosition().distance(boxes[i].getPosition());
-        
-        // if this point is beyond the "play" distance or playing
-//        // Make sure that it stays within a bound, so apply a joint
-//        if(distA >= playDist) {
-//            
-//        } else
-//        if(distA <= minDis) {
-//            
-//        }
-        
-        //If not, then keep it joint free
-        if(i!=0) {
-           // ofLog() << "Dist" << ofToString(i) << ": " << ofToString(boxes[i-1].getPosition().distance(boxes[i].getPosition()));
-            if(resetCounter == 0) {
-            if(boxes[i-1].getPosition().distance(boxes[i].getPosition()) > 450) {
-                bool isOverlap = false;
-                if(scenes.size() < 2) {
-                    for(int j=0;j<scenes.size();j++){ 
-                        if(boxes[i-1].getPosition().distance(scenes[j].pos) < panel.getValueI("OverlapDistance")) {
-                            isOverlap = true;
-                            //ofLog() << "Overlap happening.";
-                        };
-                    }
-                    if(!isOverlap) {
-                        ofLog() << "New Joint!";
-                        ofxBox2dJoint joint;
-                        joint.setup(box2d.getWorld(), boxes[i-1].body, boxes[i].body);
-                        joint.setLength(500);
-                        Scene scn = Scene();
-                        scenes.push_back(scn); 
-                        scenes[scenes.size()-1].setup("", joint, boxes[i-1].getPosition().x, 640, movieSelector);
-                        movieSelector = (movieSelector+1)%numOfMovies;
-                    }
-                }
-                }
-            } else {
-                resetCounter -= 1;
-            }
-        }
-	}
-    bool stillActive = false;
-    for(int i=0;i<scenes.size();i++) {
-        scenes[i].update();
-        if(!stillActive)
-        stillActive = scenes[i].isDone();
+//--------------------------------------------------------------
+void testApp::updateSettings(){
+    for( int i=0;i<numberOfLights;i++) {
+        float pwr = panel.getValueF("l" + ofToString(i) + "pwr");
+        float x = panel.getValueF("l" + ofToString(i) + "x");
+        float y = panel.getValueF("l" + ofToString(i) + "y");
+        float z = panel.getValueF("l" + ofToString(i) + "z");
+        lights[i]->setLocation(ofVec3f(x*room.x,y*room.y,z*room.z));
+        lights[i]->setStrength(pwr);
     }
-    if(!stillActive) {
-        scenes.clear();
-        if(resetCounter == 0) resetCounter = 100;
-        ofLog() << "Reseting movies";
-    }
-   if(scenes.size() == 0) {
-       resetCounter = 0;
-   }
-    
-    if(ofGetSeconds()%330 == 0) {
-        scenes.clear();
-        ofLog() << "Kill switch!";
-    }
-    
 }
 
 //--------------------------------------------------------------
 void testApp::draw(){
     ofBackgroundGradient(ofColor(0),ofColor(10) );    
     
-    //glEnable(GL_ALPHA_TEST);
-	//glDisable(GL_DEPTH_TEST);
-    if(attract) {
-        attractMode();
-    } else {
-        if(debug) {
-        ofSetHexColor(0x123456);
-//        anchor1.draw();
-//        anchor2.draw();
-        for(int i=0; i<boxes.size(); i++) {
-            ofFill();
-        ofSetHexColor(0x123456);
-            homeBase[i].draw();
-            ofSetHexColor(0xBF2545);
-            boxes[i].draw();
-        }
+    glEnable(GL_DEPTH_TEST);
+    
+	camera.begin();	
+//        ofTranslate(0,-400);
+        if(rotate)
+            ofRotateY(ofRadToDeg(  ofGetElapsedTimeMillis()*.0001 ));
+    
+        ofSetColor(200);
+        ofSphere(0, 0, 10, 10);
         
-        // draw the ground
-        box2d.drawGround();
-        for(int i = 0; i < contourFinder.size(); i++) {
-            ofPoint center = toOf(contourFinder.getCenter(i));
-            
-            float depth;
-            if(kinect.isConnected())
-                depth = kinect.getDistanceAt(center)*.1;
-            else depth = 1.0;
-            
-            ofEllipse((center.x/640) * 1024,100, depth,depth);
+//        testLight->draw();
+        for(int i=0;i<lights.size();i++) {
+            lights[i]->draw();
         }
-        drawCamDebug();
+        for(int i=0;i<people.size();i++) {
+            people[i]->draw();
         }
-        else {
-            shader.begin();
-            if(contourFinder.size() >= 1)
-                shader.setUniform2f("push1", (float)contourFinder.getCenter(0).x, (float)contourFinder.getCenter(0).y);
-            if(contourFinder.size() >= 2)
-                shader.setUniform2f("push2", (float)contourFinder.getCenter(1).x, (float)contourFinder.getCenter(1).y );
-            if(contourFinder.size() >= 3)
-                shader.setUniform2f("push3", (float)contourFinder.getCenter(2).x, (float)contourFinder.getCenter(2).y );
-            if(contourFinder.size() >= 4)
-                shader.setUniform2f("push4", (float)contourFinder.getCenter(3).x, (float)contourFinder.getCenter(3).y );
-            for(int i=1;i<boxes.size();i++) {
-                ofSetColor((int)(i*60)%255, (int)(ofGetElapsedTimeMillis()/1000)%255,(int)(i*20)%255);
-               float dist;
-//                if(i==0)
-//                    dist = anchor1.getPosition().distance(boxes[i].getPosition());
-//                else dist = boxes[i].getPosition().distance(boxes[i-1].getPosition());
-                ofRect(boxes[i-1].getPosition().x, 0, boxes[i].getPosition().x, ofGetHeight());
-            }
-            shader.end();
-            ofSetColor(255);
-            for(int i=0;i<scenes.size();i++) {
-                scenes[i].draw();
-            }
+        ofPushMatrix();
+            ofSetColor(100,100,100);
+            ofScale(room.x,0,room.z);
+            ofBox(1);
+        ofPopMatrix();
+    
+    camera.end();
+    
+    
+    
+    if(debug) {
+    ofSetHexColor(0x123456);
+    
+        for(int i=0;i<lights.size();i++) {
+            lights[i]->debug(); 
         }
+    
+    for(int i = 0; i < contourFinder.size(); i++) {
+        ofPoint center = toOf(contourFinder.getCenter(i));
+        
+        float depth;
+        if(kinect.isConnected())
+            depth = kinect.getDistanceAt(center)*.1;
+        else depth = 1.0;
+        
+        ofEllipse((center.x/640) * ofGetWidth(),100, depth,depth);
+    }
+    drawCamDebug();
     }
     
+
     
     glDisable(GL_ALPHA_TEST);
     glDisable(GL_DEPTH_TEST);
-}
-
-void testApp::attractMode() {
-    glDisable(GL_BLEND);
-    ofPushMatrix();
-    ofPushMatrix();
-    // ofTranslate(ofGetWidth()/2-rectWidth/2,ofGetHeight()/2-rectHeight/2);
-    ofSetColor(0);
-    ofRect(0,0,ofGetWidth(),ofGetHeight());
-    ofPopMatrix();
-    ofPushMatrix();
-    ofTranslate(0, ofGetHeight()/2);
-    shader2.begin();
-    shader2.setUniform2f("mouse",ofGetMouseX(),ofGetMouseY());
-    shader2.setUniform1f("dist", ofGetMouseX()/ofGetWidth() );
-    shader2.setUniform1f("time", ofGetElapsedTimef());
-    ofSetColor(255);
-    ofPushMatrix();
-    ofScale(1.2,1);
-    int trans = (int)(ofGetElapsedTimeMillis()/100)%60;
-    
-    if(trans <= 10)
-        font.drawStringAsShapes("ACCESSIBILITY", 0, 0);
-    if(trans >= 10 && trans <= 20)
-        font.drawStringAsShapes("CITIZEN", 0, 0);
-    if(trans >= 20 && trans <= 30)
-        font.drawStringAsShapes("CULTURE", 0, 0);
-    if(trans >= 30 && trans <= 40)
-        font.drawStringAsShapes("CONTROL", 0, 0);
-    if(trans >= 40 && trans <= 50)
-        font.drawStringAsShapes("MAKE", 0, 0);
-    if(trans >= 50 && trans <= 60)
-        font.drawStringAsShapes("BOLD", 0, 0);
-    
-    ofPopMatrix();
-    shader2.end();
-    
-    ofSetColor(255);
-    
-    ofTranslate(ofGetWidth()-500,0);
-    ofPushMatrix();
-    ofScale(panel.getValueF("idScale"),1);
-    ofTranslate(-ofGetWidth()/2+100,-ofGetHeight()/2+panel.getValueF("idPos"));
-    for(int i=1;i<boxes.size();i++) {
-        ofSetColor((int)(i*60)%255, (int)(ofGetElapsedTimeMillis()/1000)%255,(int)(i*20)%255);
-        float dist;
-        ofRect(boxes[i-1].getPosition().x, boxes[i].getPosition().y, boxes[i].getPosition().y,  boxes[i].getPosition().y);
-    }
-    ofPopMatrix();
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_ONE, GL_DST_ALPHA);  
-    ofSetColor(255);
-    font.drawStringAsShapes("SHIFT", 0, 0);
-    glDisable(GL_BLEND);
-    
-    ofPopMatrix();
-    
-    
-    
-    ofPopMatrix();
 }
 
 void testApp::drawCamDebug() {
@@ -428,19 +313,19 @@ void testApp::drawCamDebug() {
 void testApp::keyPressed(int key){
     switch(key) {
         case ' ':
-            scenes.clear();
-            resetCounter = 100;
-//            if(!attract) attract = true;
-//            else attract = false;
             break;
         case 'i':
-            if(!attract) attract = true;
-            else attract = false;
             break;
+        case 'r':
+            rotate =!rotate;
         case 'd':
-            if(!debug) debug = true;
-            else debug = false;
+            debug = !debug;
             break;
+            
+        case 'm':
+			if(camera.getMouseInputEnabled()) camera.disableMouseInput();
+			else camera.enableMouseInput();
+			break;
     }
 }
 
@@ -492,69 +377,194 @@ void testApp::dragEvent(ofDragInfo dragInfo){
 //--------------------------------------------------------------
 //--------------------------------------------------------------
 //--------------------------------------------------------------
-Scene::Scene() {
 
-}
-
-Scene::~Scene() {
-    video.closeMovie();
-}
-
-void Scene::setup(string path, ofxBox2dJoint _joint, int _x, int _w, int select) {
-    video.setUseTexture(true);
-    if(video.isLoaded()) video.close();
-    video.setLoopState(OF_LOOP_NONE);
-    video.setPixelFormat(OF_PIXELS_RGB);
-    video.setVolume(1.0);
-    video.loadMovie("movie/" + ofToString(select) + ".mov");
-    video.play();
-    done = false;
-    joint = _joint;
-    ofLog() << "Playing movie/" << ofToString(select) << ".mov";
+Light::Light(ofVec3f _position, int _id, int _clock, int _data, ofArduino * _arduino) {
+    position = _position;
+    lightId = _id;
+    clockPin = _clock;
+    dataPin = _data;
+    ledCount = 20;
+    ledPerMeter = 48;
+    width = 10;
+    height = 100;
+    numOfArms = 3;
+    power = 0.;
     
-    x = _x;
-    w = 640;   
-    pos = ofVec2f(x,50);
-}
-
-void Scene::update(){
-//    if(!video.isPlaying() && !done) video.play();
-    if(video.isLoaded()) video.update();
-    else if(!done) { 
-        setup("",joint,x,640,ofRandom(0,18));
-      //  ofLog() << "No video loaded";
-    } else {
-        joint.destroy();
-        video.close();
+    arduino = _arduino;
+    
+    for(int i=0;i<numOfArms;i++) {
+        arduino->sendDigitalPinMode(clockPin+i, ARD_PWM);
+        arduino->sendDigitalPinMode(dataPin+i, ARD_PWM);
     }
     
-//    ofLog() << "Cur Frame " << ofToString(video.getCurrentFrame()) << " of " << ofToString(video.getTotalNumFrames());
-    if(video.getCurrentFrame() >= video.getTotalNumFrames()-50 ) {
-        video.close();
-        done = true;
-        ofLog() << "Closing movie.";
+    for(int i=0;i<ledCount*numOfArms;i++) {
+        leds.push_back(ofNoise(i,i,i));
     }
+    
+}
+    
+Light::~Light() {
+    
 }
 
-void Scene::draw() {
-//    video.draw(x,0);
+void Light::setStrength(float _power) {
+    power = _power;
+}
+
+void Light::draw() {
     ofPushMatrix();
-    ofTranslate(x,0);
-    if(video.getCurrentFrame() < 100) {
-        ofScale( 1,video.getCurrentFrame()*.01);
-    } else if(video.getCurrentFrame()+100 >= video.getTotalNumFrames()) {
-        float reduce = (video.getTotalNumFrames()-video.getCurrentFrame())*.01;
-        ofScale( 1, reduce );
-    } else ofScale(1,1);
-    ofSetColor(0);
-   ofRect(-10,-10,660,ofGetHeight()+20);
-    ofSetColor(255);
-    video.getTextureReference().draw(0,300,640,400);
+    ofTranslate(position);
+    ofRotate(110,-1,0,0);
+    for(int i=0;i<numOfArms;i++) {
+        int rotation = i * (360/numOfArms);
+        ofPushMatrix();
+            ofRotate(rotation,0,-1,1);
+            ofRotate(45,0,-1,0);
+            drawArm(i);
+        ofPopMatrix();
+    }
     ofPopMatrix();
 }
 
+void Light::lightUpdate() {
+//    int per = (leds.size() / ledCount) * power;
+    int per = floor(( (leds.size()/numOfArms) * (1-power)) + 1);
+    ofLog() << ofToString(per);
+//    for(int i=0;i<leds.size();i+=ofRandom(per*.5,per)) {
+//        leds[i] = ofRandom(0,1);//ofNoise(leds[i]);
+//    }
+//    if(!per) per = leds.size() / numOfArms;
+    for(int i=0;i<leds.size();i++) {
+        if(i%per == 0) leds[i] = ofRandom(0,1);
+        else if (ofRandom(0,per) == 0) leds[i] = ofRandom(0,1);
+        else leds[i] = 0;
+    }
+}
 
-bool Scene::isDone() {
-  //  return video.isPlaying(); 
-   return done;
+void Light::update() {
+    lightUpdate();
+     // Writing to buffer (straight serial)
+    buffer.clear();
+    // set Light ID
+    buffer.push_back(0);
+    buffer.push_back('l');
+    
+    for(int arm=0;arm<numOfArms;arm++) {
+        // Set Arm ID
+        buffer.push_back(lightId);
+        buffer.push_back('a');
+        // Run through arm LED's
+        for(int i=0;i<leds.size();i++) {
+            buffer.push_back(':');
+            int theLed = static_cast<int>(floor(leds[i] * 255));
+            buffer.push_back(theLed);
+        }
+    }
+    // End the light value
+    buffer.push_back('e');
+
+//    for(int i=0;i<numOfArms;i++) {
+//        arduino->sendPwm(clockPin+i, (int)(128 + 128 * sin(ofGetElapsedTimef())));
+//    }
+}
+
+unsigned char * Light::getBuffer() {
+    unsigned char * bufferPtr;
+    bufferPtr = &buffer[0];
+//    ofLog() << ofToString(bufferPtr);
+    string buff;
+    for(int i=0;i<buffer.size();i++) {
+        buff += buffer[i];
+    }
+    ofLog() << buff;
+    return bufferPtr;
+}
+
+int Light::getBufferLength() {
+   return buffer.size();
+}
+
+void Light::setLocation(ofVec3f _position) {
+    position = _position;
+}
+
+void Light::drawArm(int num) {
+    ofSetColor(255);
+    ofPushMatrix();
+        ofTranslate(width/2,height/2,width/2);
+        ofSetColor(147,100,100);
+        ofPushMatrix();
+            ofScale(width,height, width);
+            ofBox(1);
+        ofPopMatrix();
+    ofPopMatrix();
+    for(int i=0;i<ledCount;i++) {
+        ofPushMatrix();
+        ofTranslate(0, i * (height/ledCount), width*.1 );
+        ofSetColor(leds[i+(ledCount*num)]*255, (leds[i+(ledCount*num)]) * 127, 0);
+        ofSphere(width/2);
+        ofPopMatrix();
+    }
+}
+
+void Light::debug() {
+    glDisable(GL_DEPTH_TEST);
+    ofPushMatrix();
+    ofTranslate(ofGetWidth()-(ledCount*2),lightId*100);
+    int arm = 0;
+    ofSetColor(255);
+    ofDrawBitmapString("Light" + ofToString(lightId),0,12);
+    for(int i=0;i<leds.size();i++) {
+        if(i%ledCount == 0) {
+            arm+=1;
+            ofPushMatrix();
+            ofTranslate(-50,arm*20);
+            ofSetColor(255);
+            ofDrawBitmapString("arm" + ofToString(arm),0,12);
+            ofPopMatrix();
+        }
+        ofPushMatrix();
+        ofTranslate(i%ledCount,arm*20);
+        ofSetColor(leds[i]*255, 100, 100);
+        ofScale(2,1);
+        ofLine(0,0,0,20);
+        ofPopMatrix();
+    }
+    ofPopMatrix();
+    glEnable(GL_DEPTH_TEST);
+}
+
+
+
+//--------------------------------------------------------------
+//--------------------------------------------------------------
+//--------------------------------------------------------------
+//--------------------------------------------------------------
+//--------------------------------------------------------------
+//--------------------------------------------------------------
+//--------------------------------------------------------------
+
+People::People(ofVec3f _position, int _id) {
+    position = _position;
+    personId = _id;
+    width = 10;
+    height = 100;
+    
+}
+
+People::~People() {
+    
+}
+
+void People::update() {
+    position += ofVec3f(ofRandom(-10,10),0,ofRandom(-10,10));
+}
+
+void People::draw() {
+    ofPushMatrix();
+    ofTranslate(position);
+    ofScale(width,height,width);
+    ofSetColor(127,50,50);
+    ofSphere(1);
+    ofPopMatrix();
 }

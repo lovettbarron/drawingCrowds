@@ -5,92 +5,133 @@
 #include "ofxKinect.h"
 #include "ofxAutoControlPanel.h"
 #include "ofxBox2d.h"
+#include "pcl.h"
 
 
-
-class Scene {
+class Light {
     
 public:
     
-    Scene();
-    ~Scene();
-    void setup(string path, ofxBox2dJoint _joint, int _x, int _w, int select);
-    void setPoint(ofVec2f * _pnt);
+    Light(ofVec3f _position, int _id, int _clock, int _data, ofArduino * _arduino);
+    ~Light();
     void update();
     void draw();
+    unsigned char * getBuffer();
+    int getBufferLength();
+    void lightUpdate();
+    void setStrength(float _power);
+    void setLocation(ofVec3f _position);
+    
+    void drawArm(int num);
+    void debug();
     bool isDone();
-    ofxBox2dJoint joint;
-    ofVec2f pos;
-    int x,w;
-    ofVideoPlayer video;
+    ofVec3f position;
     bool done;
 private:
+    int lightId;
+    int clockPin;
+    int dataPin;
+    int ledCount; // Per arm
+    int ledPerMeter; // Num LEDs per meter
+    int numOfArms; // Num of arms per light
+    int width;
+    int height;
+    float power; // 1.0 for light strength
+    ofArduino * arduino;
+    vector<float> leds;
+    vector<unsigned char> buffer;
+    
+};
+
+class Scene {
+  
+public:
+    void draw();
+    
+    
+private:
+    
 };
 
 
+class People {
+    
+public:
+    People(ofVec3f _position, int _id);
+    ~People();
+    void draw();
+    void update();
+    void debug();
+private:
+    int height, width;
+    ofVec3f position;
+    int personId;
+    
+};
+
 class testApp : public ofBaseApp{
     
-	public:
-		void setup();
-		void update();
-		void draw();
-        void exit();
+public:
+    void setup();
+    void update();
+    void draw();
+    void exit();
     
-        void attractMode();
-        void setupGUI();
-        void setupCamera();
-        void updateCamera();
-        void drawCamDebug();
-
-		void keyPressed  (int key);
-		void keyReleased(int key);
-		void mouseMoved(int x, int y );
-		void mouseDragged(int x, int y, int button);
-		void mousePressed(int x, int y, int button);
-		void mouseReleased(int x, int y, int button);
-		void windowResized(int w, int h);
-		void dragEvent(ofDragInfo dragInfo);
-		void gotMessage(ofMessage msg);
+    void setupGUI();
+    void setupCamera();
+    void setupArduino();
+    void updateCamera();
+    void updateSettings();
+    void writeArduino();
+    void drawCamDebug();
     
-        int movieSelector, numOfMovies;
-        ofShader shader, shader2;
-        int rectWidth, rectHeight;
-        ofTrueTypeFont font;
-        bool attract, debug;
-        float playDist;
-        float depthMulti;
-    int resetCounter;
-        
-        // Kinect
-        ofxKinect kinect;
-        ofVideoGrabber cam;
-        
-        // Video
-        vector      <ofVideoPlayer>     video;
-        vector      <Scene>             scenes;
-        vector<ofVec3f> points;
-        ofTrueTypeFont raleway;
-        
-        ofxAutoControlPanel panel;
-        ofImage thresh;
-        ofImage bgThresh;
-        ofImage kDepth;
-        cv::Mat kDepthMat;
-        cv::Mat threshMat;
-        
-        ofxCv::RunningBackground background;
-        int panelWidth; // Debugging away from img
-        int angle; // Kinect angle
-        ofPolyline brush;
-        float threshold;
-        ofxCv::ContourFinder contourFinder;
-        
-        //Box2d
-        ofxBox2d						box2d;			  //	the box2d world
-        ofxBox2dCircle					anchor1,anchor2;  //	fixed anchor
-        vector		<ofxBox2dJoint>		joints;		
-        vector      <ofxBox2dJoint>     vidJoint;
-        vector		<ofxBox2dCircle>		boxes;			  //	defalut box2d rects
-        vector      <ofxBox2dCircle>    homeBase;
-    private:
+    void keyPressed  (int key);
+    void keyReleased(int key);
+    void mouseMoved(int x, int y );
+    void mouseDragged(int x, int y, int button);
+    void mousePressed(int x, int y, int button);
+    void mouseReleased(int x, int y, int button);
+    void windowResized(int w, int h);
+    void dragEvent(ofDragInfo dragInfo);
+    void gotMessage(ofMessage msg);
+    
+    // Globals
+    bool debug, rotate;
+    float depthMulti;
+    int numberOfLights;
+    ofVec3f room;
+    
+    // Kinect
+    ofEasyCam camera;
+    ofxKinect kinect;
+    ofVideoGrabber cam;
+    
+    // Lights
+    vector <Light*> lights;
+    vector <People*> people;
+    vector<ofVec3f> points;
+    
+    Light * testLight;
+    
+    ofArduino serial;
+    
+    // Kinects and controls
+    ofxAutoControlPanel panel;
+    ofImage thresh;
+    ofImage bgThresh;
+    ofImage kDepth;
+    cv::Mat kDepthMat;
+    cv::Mat threshMat;
+    
+    ofxCv::RunningBackground background;
+    int panelWidth; // Debugging away from img
+    int angle; // Kinect angle
+    ofPolyline brush;
+    float threshold;
+    ofxCv::ContourFinder contourFinder;
+    
+    //Box2d
+    ofxBox2d box2d;
+    vector<ofxBox2dCircle> boxes;
+private:
 };
