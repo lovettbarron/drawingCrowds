@@ -1,14 +1,86 @@
+<cameraDistance>
+    <val_0>700</val_0>
+</cameraDistance>
+<cam1x>
+    <val_0>0</val_0>
+</cam1x>
+<cam1y>
+    <val_0>0.433333</val_0>
+</cam1y>
+<cam1z>
+    <val_0>0.477778</val_0>
+</cam1z>
+<l0pwr>
+    <val_0>1</val_0>
+</l0pwr>
+<l0x>
+    <val_0>0.244444</val_0>
+</l0x>
+<l0y>
+    <val_0>1</val_0>
+</l0y>
+<l0z>
+    <val_0>0.442881</val_0>
+</l0z>
+<l1pwr>
+    <val_0>1</val_0>
+</l1pwr>
+<l1x>
+    <val_0>0.405556</val_0>
+</l1x>
+<l1y>
+    <val_0>1</val_0>
+</l1y>
+<l1z>
+    <val_0>0.0538965</val_0>
+</l1z>
+<l2pwr>
+    <val_0>1</val_0>
+</l2pwr>
+<l2x>
+    <val_0>0.566667</val_0>
+</l2x>
+<l2y>
+    <val_0>0.655556</val_0>
+</l2y>
+<l2z>
+    <val_0>0.811111</val_0>
+</l2z>
+<l3pwr>
+    <val_0>1</val_0>
+</l3pwr>
+<l3x>
+    <val_0>0.622222</val_0>
+</l3x>
+<l3y>
+    <val_0>1</val_0>
+</l3y>
+<l3z>
+    <val_0>0.327653</val_0>
+</l3z>
+<l4pwr>
+    <val_0>1</val_0>
+</l4pwr>
+<l4x>
+    <val_0>0.859491</val_0>
+</l4x>
+<l4y>
+    <val_0>0.433333</val_0>
+</l4y>
+<l4z>
+    <val_0>0.683333</val_0>
+</l4z>
 <maxThreshold>
-    <val_0>181.333</val_0>
+    <val_0>55.25</val_0>
 </maxThreshold>
 <minAreaRadius>
-    <val_0>0</val_0>
+    <val_0>7.11111</val_0>
 </minAreaRadius>
 <maxAreaRadius>
-    <val_0>100</val_0>
+    <val_0>85.3333</val_0>
 </maxAreaRadius>
 <DepthMultiplier>
-    <val_0>1</val_0>
+    <val_0>1.16667</val_0>
 </DepthMultiplier>
 <learningTime>
     <val_0>900</val_0>
@@ -20,14 +92,20 @@
     <val_0>0</val_0>
 </resetBg>
 <OverlapDistance>
-    <val_0>527.778</val_0>
+    <val_0>500</val_0>
 </OverlapDistance>
-<angle>
-    <val_0>0</val_0>
-</angle>
 <idScale>
-    <val_0>0.361111</val_0>
+    <val_0>0.3</val_0>
 </idScale>
-<idPos>
-    <val_0>88.8889</val_0>
-</idPos>
+<idPosx>
+    <val_0>-500</val_0>
+</idPosx>
+<idPosy>
+    <val_0>-500</val_0>
+</idPosy>
+<angle>
+    <val_0>-27.1111</val_0>
+</angle>
+<cam1d>
+    <val_0>0.255556</val_0>
+</cam1d>

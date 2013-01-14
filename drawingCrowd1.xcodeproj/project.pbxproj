@@ -691,6 +691,7 @@
 		83F1E6361694C6EF00A84928 /* libpcl_visualization.1.7.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; path = libpcl_visualization.1.7.dylib; sourceTree = "<group>"; };
 		83F1E6371694C6EF00A84928 /* libpcl_visualization.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; path = libpcl_visualization.dylib; sourceTree = "<group>"; };
 		83F1E67A1694C71C00A84928 /* pcl_config.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = pcl_config.h; sourceTree = "<group>"; };
+		83F1FBB1169F792F00A84928 /* firmataFiresite.ino */ = {isa = PBXFileReference; explicitFileType = sourcecode.c; fileEncoding = 4; name = firmataFiresite.ino; path = ../../../Documents/Arduino/firmataFiresite/firmataFiresite.ino; sourceTree = "<group>"; };
 		880a91440bb730555f4dfc3d56462c34 /* cameras.h */ = {isa = PBXFileReference; explicitFileType = sourcecode.c.h; fileEncoding = 30; name = cameras.h; path = ../../openFrameworks/addons/ofxKinect/libs/libfreenect/cameras.h; sourceTree = SOURCE_ROOT; };
 		8a0b12fac93c7530f66e4631ce2fa1e0 /* tinyxmlparser.cpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.cpp; fileEncoding = 30; name = tinyxmlparser.cpp; path = ../../openFrameworks/addons/ofxXmlSettings/libs/tinyxmlparser.cpp; sourceTree = SOURCE_ROOT; };
 		9182e227a060e657a944b48f0aad1d87 /* freenect_internal.h */ = {isa = PBXFileReference; explicitFileType = sourcecode.c.h; fileEncoding = 30; name = freenect_internal.h; path = ../../openFrameworks/addons/ofxKinect/libs/libfreenect/freenect_internal.h; sourceTree = SOURCE_ROOT; };
@@ -1882,6 +1883,14 @@
 			path = pcl;
 			sourceTree = "<group>";
 		};
+		83F1FBB0169F789900A84928 /* arduino */ = {
+			isa = PBXGroup;
+			children = (
+				83F1FBB1169F792F00A84928 /* firmataFiresite.ino */,
+			);
+			name = arduino;
+			sourceTree = "<group>";
+		};
 		8e05f119827cd5423083ec1ae1db46c3 /* libusb-1.0 */ = {
 			isa = PBXGroup;
 			children = (
@@ -1964,6 +1973,7 @@
 		E4B69B4A0A3A1720003C02F2 = {
 			isa = PBXGroup;
 			children = (
+				83F1FBB0169F789900A84928 /* arduino */,
 				E4B6FCAD0C3E899E008CF71C /* openFrameworks-Info.plist */,
 				E4EB6923138AFD0F00A09F29 /* Project.xcconfig */,
 				E4B69E1C0A3A1BDC003C02F2 /* src */,

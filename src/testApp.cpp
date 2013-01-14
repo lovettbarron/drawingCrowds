@@ -29,7 +29,7 @@ void testApp::setup(){
     
     camera.disableMouseInput();
     
-    numberOfLights = 6;
+    numberOfLights = 5;
     room = ofVec3f(1000,400,500);
     
     for(int i=0;i<numberOfLights;i++) {
@@ -59,7 +59,10 @@ void testApp::setupArduino() {
     
  //   serial.listDevices();
 //	vector <ofSerialDeviceInfo> deviceList = serial.getDeviceList();
-	serial.connect("/dev/tty.usbserial-A900acdV",57600); // Firmata
+	serial.setup(0,57600); // Firmata 
+//    int numSent = serial.writeBytes("Setup Firesite");
+  //  ofLog() << "Sent " << ofToString(numSent) << " bytes.";
+//    "/dev/tty.usbserial-A900acdV"
     
 }
 
@@ -91,6 +94,7 @@ void testApp::setupGUI() {
     panel.addSlider("cam1x", 0, 0., 1., false);
     panel.addSlider("cam1y", 0, 0., 1., false);
     panel.addSlider("cam1z", 0, 0., 1., false);
+    panel.addSlider("cam1d", 0, 0., 1., false);
     
     for( int i=0;i<numberOfLights;i++) {
         panel.addPanel("Light" + ofToString(i));    void setLocation(ofVec3f _position);
@@ -181,14 +185,34 @@ void testApp::updateCamera() {
         }
     } else {
         kinect.update();
-//        if(kinect.isFrameNew()) {
-//            kDepthMat = toCv(kinect.getDepthPixelsRef());
-//            blur(kDepthMat, 10);
-//            kDepthMat -= threshMat;
-//            contourFinder.findContours(kDepthMat);
-////            brush = getContour(&contourFinder);
-//        }
+       if(kinect.isFrameNew()) {
+           cameras[0]->isNewFrame(true);   
+           kDepthMat = toCv(kinect.getDepthPixelsRef());
+           blur(kDepthMat, 10);
+           //kDepthMat -= threshMat;
+           contourFinder.findContours(kDepthMat);
+          // brush = getContour(&contourFinder);
+             float distance;
+           for(int j=0;j<lights.size();j++) {
+               distance = 0;
+               for( int i=0;i<contourFinder.size();i++) {
+                   ofPoint center = toOf(contourFinder.getCenter(i));
+                   distance += lights[j]->getLocation().squareDistance(ofVec3f(center.x,30,center.y)) * .001;
+               }
+               lights[j]->setTotalDist(distance);
+           }
+           
+           int pwrLight = 0;
+           for(int i=0;i<lights.size();i++) {
+               lights[i]->setStrength(0);
+               if(lights[i]->getTotalDist() < lights[pwrLight]->getTotalDist()) { pwrLight = i; }
+           }
+           lights[pwrLight]->setStrength(1.0); 
+       } else {
+           cameras[0]->isNewFrame(false);
+       }
         
+     
     }
 }
 
@@ -214,12 +238,14 @@ void testApp::update(){
             panel.getValueF("cam1z") * room.z
         );
         cameras[i]->setLocation(camPosition);
+        cameras[i]->setDirection(panel.getValueF("cam1d"));
         cameras[i]->update();
     }
     
-    for(int i=0;i<people.size();i++) {
-        people[i]->update();
-    }
+//    for(int i=0;i<people.size();i++) {
+//        people[i]->update();
+//    }
+
     updateSettings();
     writeArduino();
 }
@@ -232,7 +258,7 @@ void testApp::updateSettings(){
         float y = panel.getValueF("l" + ofToString(i) + "y");
         float z = panel.getValueF("l" + ofToString(i) + "z");
         lights[i]->setLocation(ofVec3f(x*room.x,y*room.y,z*room.z));
-        lights[i]->setStrength(pwr);
+        //lights[i]->setStrength(pwr);
     }
 }
 
@@ -253,13 +279,20 @@ void testApp::draw(){
         for(int i=0;i<lights.size();i++) {
             lights[i]->draw();
         }
-        for(int i=0;i<people.size();i++) {
-            people[i]->draw();
-        }
+//        for(int i=0;i<people.size();i++) {
+//            people[i]->draw();
+//        }
     
         for(int i=0;i<cameras.size();i++) {
             cameras[i]->draw();
         }
+    
+        for(int i = 0; i < contourFinder.size(); i++) {
+            ofPoint center = toOf(contourFinder.getCenter(i));
+            //ofSphere(center.x, 10, center.y, 20);
+            drawPerson(center, toOf(contourFinder.getVelocity(i)));
+        }
+    
         ofPushMatrix();
             ofSetColor(100,100,100);
             ofTranslate(room.x/2,0,room.z/2);
@@ -297,12 +330,27 @@ void testApp::draw(){
     glDisable(GL_DEPTH_TEST);
 }
 
+void testApp::drawPerson(ofPoint pos, ofVec3f dir) {
+    ofPushMatrix();
+    ofTranslate(pos.x,30,pos.y);
+    ofSetColor(255);
+    ofDrawBitmapString("x" + ofToString(pos.x) + " y" + ofToString(pos.y),0,0);
+    ofSetColor(127);
+    ofSphere(0,60,0,20);
+    ofScale(20,60,10);
+    ofBox(1);
+    ofLine(0,0,dir.x,dir.y);
+    ofPopMatrix();
+}
+
 void testApp::drawCamDebug() {
     
     ofPushMatrix();
-    ofTranslate(ofGetWidth()/2, 0);
+    glDisable(GL_DEPTH_TEST);
+    ofTranslate(ofGetWidth()-(kinect.getWidth()/2), ofGetHeight()-(kinect.getHeight()/2));
     ofScale(.5,.5);
-        ofSetColor(255);
+    ofSetColor(255);
+    ofSetLineWidth(1);
         if(!kinect.isConnected()) cam.draw(0, 0);
         else kinect.drawDepth(0,0);
         
@@ -314,18 +362,19 @@ void testApp::drawCamDebug() {
             float depth;
             if(kinect.isConnected())
                 depth = kinect.getDistanceAt(center);
-            else depth = 0;
-            
+            else depth = 0;;
+            ofSetColor(255);
+            contourFinder.getPolyline(i).draw();
             ofPushMatrix();
             ofTranslate(center.x, center.y);
             int label = contourFinder.getLabel(i);
-            ofDrawBitmapString(ofToString(depth*depthMulti), 0, 12);
+            ofDrawBitmapString(ofToString(label) + ":" + ofToString(depth*depthMulti), 0, 12);
             ofVec2f velocity = toOf(contourFinder.getVelocity(i));
             ofScale(5, 5);
             ofLine(0, 0, velocity.x, velocity.y);
             ofPopMatrix();
     }
-    
+    glDisable(GL_DEPTH_TEST);
 //    thresh.draw(thresh.width, 0, 2, 256,192);
     ofPopMatrix(); // For panel
 }
@@ -400,7 +449,7 @@ void testApp::dragEvent(ofDragInfo dragInfo){
 //--------------------------------------------------------------
 //--------------------------------------------------------------
 
-Light::Light(ofVec3f _position, int _id, int _clock, int _data, ofArduino * _arduino) {
+Light::Light(ofVec3f _position, int _id, int _clock, int _data, ofSerial * _arduino) {
     position = _position;
     lightId = _id;
     clockPin = _clock;
@@ -415,8 +464,8 @@ Light::Light(ofVec3f _position, int _id, int _clock, int _data, ofArduino * _ard
     arduino = _arduino;
     
     for(int i=0;i<numOfArms;i++) {
-        arduino->sendDigitalPinMode(clockPin+i, ARD_PWM);
-        arduino->sendDigitalPinMode(dataPin+i, ARD_PWM);
+//        arduino->sendDigitalPinMode(clockPin+i, ARD_PWM);
+  //      arduino->sendDigitalPinMode(dataPin+i, ARD_PWM);
     }
     
     for(int i=0;i<ledCount*numOfArms;i++) {
@@ -436,6 +485,9 @@ void Light::setStrength(float _power) {
 void Light::draw() {
     ofPushMatrix();
     ofTranslate(position);
+    ofSetColor(255);
+    ofDrawBitmapString("Light" + ofToString(lightId),0,12);
+    ofDrawBitmapString("x" + ofToString(position.x) + " y" + ofToString(position.z),0,0);
     ofRotate(110,-1,0,0);
     for(int i=0;i<numOfArms;i++) {
         int rotation = i * (360/numOfArms);
@@ -449,41 +501,56 @@ void Light::draw() {
 }
 
 void Light::lightUpdate() {
+    float maxPower, minPower, ptr, ledStr;
 //    int per = (leds.size() / ledCount) * power;
-    int per = floor(( (leds.size()/numOfArms) * (1-power)) + 1);
+  //  int per = floor(( ledCount * (1-power)) + 1);
     //ofLog() << ofToString(per);
 //    for(int i=0;i<leds.size();i+=ofRandom(per*.5,per)) {
 //        leds[i] = ofRandom(0,1);//ofNoise(leds[i]);
 //    }
 //    if(!per) per = leds.size() / numOfArms;
-    for(int i=0;i<leds.size();i++) {
-        if(i%per == 0) leds[i] = ofRandom(0,1);
+/*    for(int i=0;i<leds.size();i++) {
+        float maxPower = 1- ( (i % ledCount) / ledCount);
+        if(i%per == 0) leds[i] = ofRandom(0,maxPower);
         else if (ofRandom(0,4) == 0) leds[i] = ofRandom(0,1);
         else leds[i] = 0;
+    } */
+    for( int a=0;a<numOfArms;a++) {
+        for(int l=0;l<ledCount;l++) {
+            maxPower = (float)l / (float)ledCount;
+            minPower = 1.0f - (maxPower * (1.0f-power));
+           // float ledStr = abs(minPower - power);
+            ptr = l + ( a * ledCount );
+            leds[ptr] = ofRandom(minPower,maxPower) * power;
+            //ofLog() << ofToString(leds[ptr]);
+        }
     }
+    
 }
 
 void Light::update() {
     lightUpdate();
      // Writing to buffer (straight serial)
-    buffer.clear();
+    //buffer.clear();
     // set Light ID
-    buffer.push_back(0);
-    buffer.push_back('l');
+    //buffer.push_back(0);
+    //buffer.push_back('l');
+    
+    String buf;
     
     for(int arm=0;arm<numOfArms;arm++) {
         // Set Arm ID
-        buffer.push_back(lightId);
-        buffer.push_back('a');
+//        buffer.push_back(lightId);
+  //      buffer.push_back('a');
         // Run through arm LED's
-        for(int i=0;i<leds.size();i++) {
-            buffer.push_back(':');
-            int theLed = static_cast<int>(floor(leds[i] * 255));
-            buffer.push_back(theLed);
-        }
+//        for(int i=0;i<leds.size();i++) {
+//            buffer.push_back(':');
+//            int theLed = static_cast<int>(floor(leds[i] * 255));
+//            buffer.push_back(theLed);
+//        }
     }
     // End the light value
-    buffer.push_back('e');
+//    buffer.push_back('e');
 
 //    for(int i=0;i<numOfArms;i++) {
 //        arduino->sendPwm(clockPin+i, (int)(128 + 128 * sin(ofGetElapsedTimef())));
@@ -528,18 +595,28 @@ void Light::drawArm(int num) {
         ofPushMatrix();
         ofTranslate(0, i * (height/ledCount), width*.1 );
         ofSetColor(leds[i+(ledCount*num)]*255, (leds[i+(ledCount*num)]) * 127, 0);
+//        ofDrawBitmapString(ofToString(i+(ledCount*num)) + ":" + ofToString(leds[i+(ledCount*num)]),0,10);
         ofSphere(width/2);
         ofPopMatrix();
     }
 }
 
+void Light::setTotalDist(float _dist) {
+    totalDist = _dist;
+};
+
+float Light::getTotalDist() {
+    return totalDist;
+};
+
 void Light::debug() {
     glDisable(GL_DEPTH_TEST);
     ofPushMatrix();
-    ofTranslate(ofGetWidth()-(ledCount*2),lightId*100);
+    ofTranslate(ofGetWidth()-(120),(lightId*120)+40);
     int arm = 0;
     ofSetColor(255);
-    ofDrawBitmapString("Light" + ofToString(lightId),0,12);
+    ofDrawBitmapString("Light" + ofToString(lightId),0,0);
+    ofDrawBitmapString("Dist" + ofToString(totalDist),0,12);
     for(int i=0;i<leds.size();i++) {
         if(i%ledCount == 0) {
             arm+=1;
@@ -550,10 +627,12 @@ void Light::debug() {
             ofPopMatrix();
         }
         ofPushMatrix();
-        ofTranslate(i%ledCount,arm*20);
-        ofSetColor(leds[i]*255, 100, 100);
-        ofScale(2,1);
-        ofLine(0,0,0,20);
+            ofScale(5,1);
+            ofTranslate(i%ledCount,arm*20);
+            ofSetColor(leds[i]*255, 100, 100);
+            ofSetLineWidth(3);
+            ofLine(0,(1-leds[i])*20,0,20);
+            ofSetLineWidth(1);
         ofPopMatrix();
     }
     ofPopMatrix();
@@ -616,7 +695,9 @@ Camera::Camera(ofVec3f _position, int _id, ofxKinect * _kinect) {
     width = 100;
     height = 10;
     depth = 10;
-    
+    res = 20;
+    direction = 0;
+    bFrame = false;
 }
 
 Camera::~Camera() {
@@ -627,28 +708,37 @@ void Camera::update() {
 
 }
 
+void Camera::isNewFrame(bool _kFrame) {
+    bFrame = _kFrame;
+}
+
 void Camera::draw() {
     ofPushMatrix();
     ofTranslate(position);
-    ofScale(width,height,depth);
-    ofSetColor(127,50,50);
-    ofSetColor(0);
-    ofBox(1);
-    if(kinect->isFrameNew()) {
-        ofSetColor(255);
-        for(int y=0;y<kinect->getHeight();y++) {
-            for(int x=0;y<kinect->getWidth();x++) {
-                int ptr = x + (y * width);
-                ofRect(x*10,y*10,kinect->getDepthPixelsRef()[ptr], 10,10);
-            }
+    ofRotateY(direction*360);
+    ofRotateX(kinect->getCurrentCameraTiltAngle());
+     if(bFrame) { 
+        ofSetColor(255,0,0);
+        ofSphere(5);
+//           for(int y=0;y<kinect->getHeight()-res;y+=res) {
+//               for(int x=0;y<kinect->getWidth()-res;x+=res) {
+////                   int ptr = x + (y * kinect->getWidth());
+//                  // ofRect(kinect->getWorldCoordinateAt(x,y), 10,10);
+//               }
+//           }
         }
-    }
-        
+    ofScale(width,height,depth);
+    ofSetColor(0);
+    ofBox(1); 
     ofPopMatrix();
 }
 
 void Camera::setLocation(ofVec3f _position) {
     position = _position;
+}
+
+void Camera::setDirection(float _direction){
+    direction = _direction;
 }
 
 ofVec3f Camera::getLocation() {

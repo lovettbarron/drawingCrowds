@@ -12,7 +12,7 @@ class Light {
     
 public:
     
-    Light(ofVec3f _position, int _id, int _clock, int _data, ofArduino * _arduino);
+    Light(ofVec3f _position, int _id, int _clock, int _data, ofSerial * _arduino);
     ~Light();
     void update();
     void draw();
@@ -22,6 +22,9 @@ public:
     void setStrength(float _power);
     void setLocation(ofVec3f _position);
     ofVec3f getLocation();
+    
+    void setTotalDist(float _dist);
+    float getTotalDist();
     
     void drawArm(int num);
     void debug();
@@ -37,9 +40,10 @@ private:
     int numOfArms; // Num of arms per light
     int width;
     int height;
+    float totalDist;
     float power; // 1.0 for light strength
     float lin2log(float _lin);
-    ofArduino * arduino;
+    ofSerial * arduino;
     vector<float> leds;
     vector<unsigned char> buffer;
     
@@ -80,12 +84,17 @@ public:
     void update();
     void debug();
     void setLocation(ofVec3f _position);
+    void setDirection(float _direction);
     ofVec3f getLocation();
+    void isNewFrame(bool _kFrame);
 private:
     ofxKinect * kinect;
+    bool bFrame;
     int height, width, depth;
+    float direction;
     ofVec3f position;
     int personId;
+    int res;
     
     
 };
@@ -105,6 +114,7 @@ public:
     void updateSettings();
     void writeArduino();
     void drawCamDebug();
+    void drawPerson(ofPoint pos, ofVec3f dir);
     
     void keyPressed  (int key);
     void keyReleased(int key);
@@ -135,7 +145,7 @@ public:
     
     Light * testLight;
     
-    ofArduino serial;
+    ofSerial serial;
     
     // Kinects and controls
     ofxAutoControlPanel panel;
