@@ -424,6 +424,7 @@
 		835BE79616633E4300B27B64 /* tracking.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = tracking.hpp; sourceTree = "<group>"; };
 		835BE79716633E4300B27B64 /* video.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = video.hpp; sourceTree = "<group>"; };
 		835BE7E516633E4300B27B64 /* opencv.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = opencv.a; sourceTree = "<group>"; };
+		836ABDE216ACB5A000414568 /* firesiteSerial.ino */ = {isa = PBXFileReference; explicitFileType = sourcecode.c; fileEncoding = 4; name = firesiteSerial.ino; path = ../../../Documents/Arduino/firesiteSerial/firesiteSerial.ino; sourceTree = "<group>"; };
 		8370DE431663C9A60025BDCD /* cv.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = cv.h; sourceTree = "<group>"; };
 		8370DE441663C9A60025BDCD /* cv.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = cv.hpp; sourceTree = "<group>"; };
 		8370DE451663C9A60025BDCD /* cvaux.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = cvaux.h; sourceTree = "<group>"; };
@@ -691,7 +692,6 @@
 		83F1E6361694C6EF00A84928 /* libpcl_visualization.1.7.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; path = libpcl_visualization.1.7.dylib; sourceTree = "<group>"; };
 		83F1E6371694C6EF00A84928 /* libpcl_visualization.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; path = libpcl_visualization.dylib; sourceTree = "<group>"; };
 		83F1E67A1694C71C00A84928 /* pcl_config.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = pcl_config.h; sourceTree = "<group>"; };
-		83F1FBB1169F792F00A84928 /* firmataFiresite.ino */ = {isa = PBXFileReference; explicitFileType = sourcecode.c; fileEncoding = 4; name = firmataFiresite.ino; path = ../../../Documents/Arduino/firmataFiresite/firmataFiresite.ino; sourceTree = "<group>"; };
 		880a91440bb730555f4dfc3d56462c34 /* cameras.h */ = {isa = PBXFileReference; explicitFileType = sourcecode.c.h; fileEncoding = 30; name = cameras.h; path = ../../openFrameworks/addons/ofxKinect/libs/libfreenect/cameras.h; sourceTree = SOURCE_ROOT; };
 		8a0b12fac93c7530f66e4631ce2fa1e0 /* tinyxmlparser.cpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.cpp; fileEncoding = 30; name = tinyxmlparser.cpp; path = ../../openFrameworks/addons/ofxXmlSettings/libs/tinyxmlparser.cpp; sourceTree = SOURCE_ROOT; };
 		9182e227a060e657a944b48f0aad1d87 /* freenect_internal.h */ = {isa = PBXFileReference; explicitFileType = sourcecode.c.h; fileEncoding = 30; name = freenect_internal.h; path = ../../openFrameworks/addons/ofxKinect/libs/libfreenect/freenect_internal.h; sourceTree = SOURCE_ROOT; };
@@ -1886,7 +1886,7 @@
 		83F1FBB0169F789900A84928 /* arduino */ = {
 			isa = PBXGroup;
 			children = (
-				83F1FBB1169F792F00A84928 /* firmataFiresite.ino */,
+				836ABDE216ACB5A000414568 /* firesiteSerial.ino */,
 			);
 			name = arduino;
 			sourceTree = "<group>";

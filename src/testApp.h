@@ -20,15 +20,18 @@ public:
     int getBufferLength();
     void lightUpdate();
     void setStrength(float _power);
+    float getStrength();
     void setLocation(ofVec3f _position);
     ofVec3f getLocation();
     
     void setTotalDist(float _dist);
     float getTotalDist();
+    void isActive(bool _active);
     
     void drawArm(int num);
     void debug();
     bool isDone();
+    void tweenUpdate();
     ofVec3f position;
     bool done;
 private:
@@ -40,6 +43,8 @@ private:
     int numOfArms; // Num of arms per light
     int width;
     int height;
+    bool active;
+    long changed, tweenTime;
     float totalDist;
     float power; // 1.0 for light strength
     float lin2log(float _lin);
@@ -136,6 +141,8 @@ public:
     ofEasyCam camera;
     ofxKinect kinect;
     ofVideoGrabber cam;
+    void fillHoles(cv::Mat src, cv::Mat dst);
+    void fillHoles(cv::Mat _mat);
     
     // Lights
     vector <Light*> lights;
@@ -145,7 +152,9 @@ public:
     
     Light * testLight;
     
+    // Arduino
     ofSerial serial;
+    String buffer;
     
     // Kinects and controls
     ofxAutoControlPanel panel;
@@ -154,13 +163,13 @@ public:
     ofImage kDepth;
     cv::Mat kDepthMat;
     cv::Mat threshMat;
-    
     ofxCv::RunningBackground background;
+    ofxCv::ContourFinder contourFinder;
+    
     int panelWidth; // Debugging away from img
     int angle; // Kinect angle
     ofPolyline brush;
     float threshold;
-    ofxCv::ContourFinder contourFinder;
     
     //Box2d
     ofxBox2d box2d;

@@ -44,39 +44,39 @@ void testApp::setup(){
     for(int i=0;i<1;i++) {
         cameras.push_back( new Camera( ofVec3f(), 0, &kinect) );
     }
-    
+    background.setLearningTime(900);
+	background.setThresholdValue(10);
     setupArduino();
 }
 
 void testApp::setupArduino() {
+
     
-    // Protocol!
-    // a : armNumber
-    // l : lightNumber
-    // e : End count
-    
-    //eg l1a2:255:255:166:177e LightId 1, arm 2, led 1, led2, led3, end line
-    
- //   serial.listDevices();
-//	vector <ofSerialDeviceInfo> deviceList = serial.getDeviceList();
-	serial.setup(0,57600); // Firmata 
-//    int numSent = serial.writeBytes("Setup Firesite");
-  //  ofLog() << "Sent " << ofToString(numSent) << " bytes.";
-//    "/dev/tty.usbserial-A900acdV"
+//    New proto
+    // Lights in ID order, CSV new line delin
+ 
+    //   serial.listDevices();
+    //	vector <ofSerialDeviceInfo> deviceList = serial.getDeviceList();
+	serial.setup(0,9600); // Firmata 
+    //    int numSent = serial.writeBytes("Setup Firesite");
+    //ofLog() << "Sent " << ofToString(numSent) << " bytes.";
     
 }
 
 void testApp::writeArduino() {
 
-//}
-
-    
-    
-    
+    buffer = "";
     for(int l = 0; l<lights.size();l++) {
         lights[l]->update();
 //        serial.writeBytes(lights[l]->getBuffer(),lights[l]->getBufferLength());   
+        
+        buffer << lights[l]->getStrength();
+        buffer << ",";
+        
     }
+    buffer << endl;
+    serial.writeBytes(buffer,buffer.size());
+    ofLog() << buffer;
 }
 
 void testApp::exit() {
@@ -107,6 +107,7 @@ void testApp::setupGUI() {
     
     panel.addPanel("Tracking Bits");
     panel.addLabel("Image Processing");
+    panel.addSlider("cvBlur",10,0,100,true);
     panel.addSlider("maxThreshold", 15, 0, 255, true);
     panel.addSlider("minAreaRadius", 7, 0, 640, true);
     panel.addSlider("maxAreaRadius", 100, 0, 640, true);
@@ -160,7 +161,8 @@ void testApp::setupCamera() {
 void testApp::updateCamera() {
     contourFinder.setMinAreaRadius(panel.getValueI("minAreaRadius"));
     contourFinder.setMaxAreaRadius(panel.getValueI("maxAreaRadius"));
-    contourFinder.setThreshold(panel.getValueI("maxThreshold"));
+//    contourFinder.setThreshold(panel.getValueI("maxThreshold"));
+    contourFinder.setAutoThreshold(true);
     background.setLearningTime(panel.getValueI("learningTime"));
     background.setThresholdValue(panel.getValueI("backgroundThresh"));
     if(panel.hasValueChanged("angle")) {
@@ -176,21 +178,25 @@ void testApp::updateCamera() {
     }
     
     if(!kinect.isConnected()) {
-        cam.update();
-        if(cam.isFrameNew()) {            
-            background.update(cam, thresh);
-            thresh.update();
-            blur(cam, 10);
-            contourFinder.findContours(cam);
-        }
+//        cam.update();
+//        if(cam.isFrameNew()) {            
+//            background.update(cam, thresh);
+//            thresh.update();
+//            blur(cam, 10);
+//            contourFinder.findContours(cam);
+//        }
     } else {
         kinect.update();
        if(kinect.isFrameNew()) {
            cameras[0]->isNewFrame(true);   
            kDepthMat = toCv(kinect.getDepthPixelsRef());
-           blur(kDepthMat, 10);
-           //kDepthMat -= threshMat;
+           blur(kDepthMat, panel.getValueI("cvBlur"));
+           // threshMat = ( (kDepthMat * .3) + (threshMat))/2 ; // Attempt at an adapting threshold...
+           cv::absdiff(kDepthMat, threshMat, kDepthMat);
+           fillHoles(kDepthMat);
            contourFinder.findContours(kDepthMat);
+           toOf(kDepthMat,kDepth);
+           kDepth.update();
           // brush = getContour(&contourFinder);
              float distance;
            for(int j=0;j<lights.size();j++) {
@@ -204,16 +210,45 @@ void testApp::updateCamera() {
            
            int pwrLight = 0;
            for(int i=0;i<lights.size();i++) {
-               lights[i]->setStrength(0);
+               lights[i]->isActive(false);
                if(lights[i]->getTotalDist() < lights[pwrLight]->getTotalDist()) { pwrLight = i; }
            }
-           lights[pwrLight]->setStrength(1.0); 
+           lights[pwrLight]->isActive(true); 
        } else {
            cameras[0]->isNewFrame(false);
        }
         
      
     }
+}
+
+
+// This was taken from
+// http://www.morethantechnical.com/2011/
+// 03/05/neat-opencv-smoothing-trick-when-kineacking-kinect-hacking-w-code/
+void testApp::fillHoles(cv::Mat src, cv::Mat dst) {
+    cv::Mat depthf(cv::Size(640,480),CV_8UC1);
+    src.convertTo(depthf, CV_8UC1, 255.0/2048.0);
+    cv::Mat _tmp,_tmp1; //minimum observed value is ~440. so shift a bit
+    cv::Mat(depthf - 400.0).convertTo(_tmp1,CV_64FC1);
+    
+    ofPoint minLoc; double minval,maxval;
+    minMaxLoc(_tmp1, &minval, &maxval, NULL, NULL);
+    _tmp1.convertTo(depthf, CV_8UC1, 255.0/maxval);  //linear interpolation
+    
+    //use a smaller version of the image
+    cv::Mat small_depthf; cv::resize(depthf,small_depthf,cv::Size(),0.2,0.2);
+    //inpaint only the "unknown" pixels
+    cv::inpaint(small_depthf,(small_depthf == 255),_tmp1,5.0,INPAINT_TELEA);
+    
+    resize(_tmp1, _tmp, depthf.size());
+    imitate(dst,depthf);
+    _tmp.copyTo(dst, (dst == 255));
+ //   ofxCv::copy(depthf,dst);
+}
+
+void testApp::fillHoles(cv::Mat _mat) {
+    fillHoles(_mat, _mat);
 }
 
 
@@ -290,7 +325,14 @@ void testApp::draw(){
         for(int i = 0; i < contourFinder.size(); i++) {
             ofPoint center = toOf(contourFinder.getCenter(i));
             //ofSphere(center.x, 10, center.y, 20);
-            drawPerson(center, toOf(contourFinder.getVelocity(i)));
+            float depth, multi;
+            if(kinect.isConnected()) {
+                depth = kinect.getDistanceAt(center)*.1;
+                multi = 1 * pow((float)depth,1.1f);
+            } else {
+                multi = 1 * pow((float)center.y,1.1f);
+            }
+            drawPerson(ofPoint(multi,  center.x), toOf(contourFinder.getVelocity(i)));
         }
     
         ofPushMatrix();
@@ -313,7 +355,6 @@ void testApp::draw(){
     
     for(int i = 0; i < contourFinder.size(); i++) {
         ofPoint center = toOf(contourFinder.getCenter(i));
-        
         float depth;
         if(kinect.isConnected())
             depth = kinect.getDistanceAt(center)*.1;
@@ -352,8 +393,9 @@ void testApp::drawCamDebug() {
     ofSetColor(255);
     ofSetLineWidth(1);
         if(!kinect.isConnected()) cam.draw(0, 0);
-        else kinect.drawDepth(0,0);
+        else kDepth.draw(0,0);
         
+//        ofImage debug = toOf(kDepthMat);
         contourFinder.draw();
         
         for(int i = 0; i < contourFinder.size(); i++) {
@@ -397,6 +439,9 @@ void testApp::keyPressed(int key){
 			if(camera.getMouseInputEnabled()) camera.disableMouseInput();
 			else camera.enableMouseInput();
 			break;
+        case 'b':
+            ofxCv::copy(kDepthMat, threshMat);
+            break;
     }
 }
 
@@ -460,7 +505,9 @@ Light::Light(ofVec3f _position, int _id, int _clock, int _data, ofSerial * _ardu
     height = 100;
     numOfArms = 3;
     power = 0.;
-    
+    active = false;
+    tweenTime = 2000;
+    changed = 0;
     arduino = _arduino;
     
     for(int i=0;i<numOfArms;i++) {
@@ -476,6 +523,12 @@ Light::Light(ofVec3f _position, int _id, int _clock, int _data, ofSerial * _ardu
     
 Light::~Light() {
     
+}
+
+void Light::isActive(bool _active) {
+    active = _active;
+    if( power <  .5) 
+        changed = ofGetElapsedTimeMillis() + tweenTime;
 }
 
 void Light::setStrength(float _power) {
@@ -500,8 +553,21 @@ void Light::draw() {
     ofPopMatrix();
 }
 
+void Light::tweenUpdate() {
+    if(active) {
+        if(power < 1.0)
+            power = (ofGetElapsedTimeMillis() - changed) / tweenTime;
+        else power = 1.0;
+    } else {
+        if(power > 0.) power -= .1;
+        else power = 0;
+    }
+    power = ofClamp(power,0.,1.);
+}
+
 void Light::lightUpdate() {
     float maxPower, minPower, ptr, ledStr;
+    
 //    int per = (leds.size() / ledCount) * power;
   //  int per = floor(( ledCount * (1-power)) + 1);
     //ofLog() << ofToString(per);
@@ -515,7 +581,7 @@ void Light::lightUpdate() {
         else if (ofRandom(0,4) == 0) leds[i] = ofRandom(0,1);
         else leds[i] = 0;
     } */
-    for( int a=0;a<numOfArms;a++) {
+    for( int a=0;a<numOfArms;a++) { // This code is replicated on the arduino.
         for(int l=0;l<ledCount;l++) {
             maxPower = (float)l / (float)ledCount;
             minPower = 1.0f - (maxPower * (1.0f-power));
@@ -529,6 +595,7 @@ void Light::lightUpdate() {
 }
 
 void Light::update() {
+    tweenUpdate();
     lightUpdate();
      // Writing to buffer (straight serial)
     //buffer.clear();
@@ -609,6 +676,10 @@ float Light::getTotalDist() {
     return totalDist;
 };
 
+float Light::getStrength() {
+    return power;
+}
+
 void Light::debug() {
     glDisable(GL_DEPTH_TEST);
     ofPushMatrix();
@@ -617,6 +688,7 @@ void Light::debug() {
     ofSetColor(255);
     ofDrawBitmapString("Light" + ofToString(lightId),0,0);
     ofDrawBitmapString("Dist" + ofToString(totalDist),0,12);
+    ofDrawBitmapString("Power" + ofToString(power),0,24);
     for(int i=0;i<leds.size();i++) {
         if(i%ledCount == 0) {
             arm+=1;

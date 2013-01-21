@@ -8,11 +8,11 @@
          ignoreCount = "0"
          continueAfterRunningActions = "No"
          filePath = "src/testApp.cpp"
-         timestampString = "379897836.592612"
+         timestampString = "380417035.620314"
          startingColumnNumber = "9223372036854775807"
          endingColumnNumber = "9223372036854775807"
-         startingLineNumber = "566"
-         endingLineNumber = "566"
+         startingLineNumber = "640"
+         endingLineNumber = "640"
          landmarkName = "Light::getBuffer()"
          landmarkType = "5">
       </FileBreakpoint>
@@ -21,11 +21,11 @@
          ignoreCount = "0"
          continueAfterRunningActions = "No"
          filePath = "src/testApp.cpp"
-         timestampString = "379897836.592612"
+         timestampString = "380417035.620314"
          startingColumnNumber = "9223372036854775807"
          endingColumnNumber = "9223372036854775807"
-         startingLineNumber = "506"
-         endingLineNumber = "506"
+         startingLineNumber = "579"
+         endingLineNumber = "579"
          landmarkName = "Light::lightUpdate()"
          landmarkType = "5">
       </FileBreakpoint>
@@ -34,11 +34,11 @@
          ignoreCount = "0"
          continueAfterRunningActions = "No"
          filePath = "src/testApp.cpp"
-         timestampString = "379872936.443482"
+         timestampString = "380147851.442986"
          startingColumnNumber = "9223372036854775807"
          endingColumnNumber = "9223372036854775807"
-         startingLineNumber = "104"
-         endingLineNumber = "104"
+         startingLineNumber = "105"
+         endingLineNumber = "105"
          landmarkName = "testApp::setupGUI()"
          landmarkType = "5">
       </FileBreakpoint>
@@ -47,13 +47,26 @@
          ignoreCount = "0"
          continueAfterRunningActions = "No"
          filePath = "src/testApp.cpp"
-         timestampString = "379820396.980149"
+         timestampString = "380147851.442986"
          startingColumnNumber = "9223372036854775807"
          endingColumnNumber = "9223372036854775807"
-         startingLineNumber = "63"
-         endingLineNumber = "63"
+         startingLineNumber = "64"
+         endingLineNumber = "64"
          landmarkName = "testApp::setupArduino()"
          landmarkType = "5">
+      </FileBreakpoint>
+      <FileBreakpoint
+         shouldBeEnabled = "No"
+         ignoreCount = "0"
+         continueAfterRunningActions = "No"
+         filePath = "src/testApp.h"
+         timestampString = "379900086.979857"
+         startingColumnNumber = "9223372036854775807"
+         endingColumnNumber = "9223372036854775807"
+         startingLineNumber = "23"
+         endingLineNumber = "23"
+         landmarkName = "class Light"
+         landmarkType = "3">
       </FileBreakpoint>
    </FileBreakpoints>
 </Bucket>
