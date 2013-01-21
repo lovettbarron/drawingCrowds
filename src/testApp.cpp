@@ -29,7 +29,7 @@ void testApp::setup(){
     
     camera.disableMouseInput();
     
-    numberOfLights = 5;
+    numberOfLights = 6;
     room = ofVec3f(1000,400,500);
     
     for(int i=0;i<numberOfLights;i++) {
@@ -70,12 +70,11 @@ void testApp::writeArduino() {
         lights[l]->update();
 //        serial.writeBytes(lights[l]->getBuffer(),lights[l]->getBufferLength());   
         
-        buffer << lights[l]->getStrength();
-        buffer << ",";
-        
+        buffer += ofToString((int)(lights[l]->getStrength() * 127));
+        if(l!=lights.size()-1) buffer += ",";
     }
-    buffer << endl;
-    serial.writeBytes(buffer,buffer.size());
+    buffer += "\n";
+    serial.writeBytes((unsigned char*) buffer.c_str(),buffer.size());
     ofLog() << buffer;
 }
 
@@ -178,13 +177,6 @@ void testApp::updateCamera() {
     }
     
     if(!kinect.isConnected()) {
-//        cam.update();
-//        if(cam.isFrameNew()) {            
-//            background.update(cam, thresh);
-//            thresh.update();
-//            blur(cam, 10);
-//            contourFinder.findContours(cam);
-//        }
     } else {
         kinect.update();
        if(kinect.isFrameNew()) {
@@ -597,31 +589,6 @@ void Light::lightUpdate() {
 void Light::update() {
     tweenUpdate();
     lightUpdate();
-     // Writing to buffer (straight serial)
-    //buffer.clear();
-    // set Light ID
-    //buffer.push_back(0);
-    //buffer.push_back('l');
-    
-    String buf;
-    
-    for(int arm=0;arm<numOfArms;arm++) {
-        // Set Arm ID
-//        buffer.push_back(lightId);
-  //      buffer.push_back('a');
-        // Run through arm LED's
-//        for(int i=0;i<leds.size();i++) {
-//            buffer.push_back(':');
-//            int theLed = static_cast<int>(floor(leds[i] * 255));
-//            buffer.push_back(theLed);
-//        }
-    }
-    // End the light value
-//    buffer.push_back('e');
-
-//    for(int i=0;i<numOfArms;i++) {
-//        arduino->sendPwm(clockPin+i, (int)(128 + 128 * sin(ofGetElapsedTimef())));
-//    }
 }
 
 unsigned char * Light::getBuffer() {

@@ -154,7 +154,7 @@ public:
     
     // Arduino
     ofSerial serial;
-    String buffer;
+    string buffer;
     
     // Kinects and controls
     ofxAutoControlPanel panel;
