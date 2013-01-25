@@ -36,9 +36,9 @@ void testApp::setup(){
         lights.push_back( new Light(ofVec3f(ofRandom(0,room.x), room.y, ofRandom(0,room.z) ), i, 10+i, 12+i, &serial) );
     }
     
-    for(int i=0;i<10;i++) {
-        people.push_back( new People( ofVec3f(ofRandom(0,room.x),0,ofRandom(0,room.z)),i));
-    }
+//    for(int i=0;i<10;i++) {
+//        people.push_back( new People( ofVec3f(ofRandom(0,room.x),0,ofRandom(0,room.z)),i));
+//    }
     setupGUI();   
     setupCamera();
     for(int i=0;i<1;i++) {
@@ -55,27 +55,29 @@ void testApp::setupArduino() {
 //    New proto
     // Lights in ID order, CSV new line delin
  
-    //   serial.listDevices();
+    serial.listDevices();
     //	vector <ofSerialDeviceInfo> deviceList = serial.getDeviceList();
-	serial.setup(0,9600); // Firmata 
+	serial.setup(5,9600); 
     //    int numSent = serial.writeBytes("Setup Firesite");
     //ofLog() << "Sent " << ofToString(numSent) << " bytes.";
     
 }
 
 void testApp::writeArduino() {
-
-    buffer = "";
-    for(int l = 0; l<lights.size();l++) {
-        lights[l]->update();
-//        serial.writeBytes(lights[l]->getBuffer(),lights[l]->getBufferLength());   
-        
-        buffer += ofToString((int)(lights[l]->getStrength() * 127));
-        if(l!=lights.size()-1) buffer += ",";
+    if(limitBuffer <= ofGetElapsedTimeMillis()) {
+        limitBuffer = ofGetElapsedTimeMillis() + panel.getValueI("TimeBetweenUpdate");
+        buffer = "";
+        for(int l = 0; l<lights.size();l++) {
+            lights[l]->update();
+    //        serial.writeBytes(lights[l]->getBuffer(),lights[l]->getBufferLength());   
+            
+            buffer += ofToString((int)(lights[l]->getStrength() * 127));
+            if(l!=lights.size()-1) buffer += ",";
+        }
+        buffer += "\n";
+        serial.writeBytes((unsigned char*) buffer.c_str(),buffer.size());
+        ofLog() << buffer;
     }
-    buffer += "\n";
-    serial.writeBytes((unsigned char*) buffer.c_str(),buffer.size());
-    ofLog() << buffer;
 }
 
 void testApp::exit() {
@@ -89,6 +91,7 @@ void testApp::setupGUI() {
     
     panel.addPanel("PointCloud");
     panel.addSlider("cameraDistance",700,0,1000,false);
+    panel.addSlider("TimeBetweenUpdate", 1000, 0,5000,true);
     panel.addLabel("Camera");
     panel.addSlider("cam1x", 0, 0., 1., false);
     panel.addSlider("cam1y", 0, 0., 1., false);
@@ -160,7 +163,7 @@ void testApp::setupCamera() {
 void testApp::updateCamera() {
     contourFinder.setMinAreaRadius(panel.getValueI("minAreaRadius"));
     contourFinder.setMaxAreaRadius(panel.getValueI("maxAreaRadius"));
-//    contourFinder.setThreshold(panel.getValueI("maxThreshold"));
+    contourFinder.setThreshold(panel.getValueI("maxThreshold"));
     contourFinder.setAutoThreshold(true);
     background.setLearningTime(panel.getValueI("learningTime"));
     background.setThresholdValue(panel.getValueI("backgroundThresh"));
@@ -200,10 +203,13 @@ void testApp::updateCamera() {
                lights[j]->setTotalDist(distance);
            }
            
+           // This is the weird bit that chooses which light is active
            int pwrLight = 0;
            for(int i=0;i<lights.size();i++) {
                lights[i]->isActive(false);
-               if(lights[i]->getTotalDist() < lights[pwrLight]->getTotalDist()) { pwrLight = i; }
+               if(lights[i]->getTotalDist() < lights[pwrLight]->getTotalDist()) { 
+                   pwrLight = i; 
+               }
            }
            lights[pwrLight]->isActive(true); 
        } else {
@@ -285,7 +291,7 @@ void testApp::updateSettings(){
         float y = panel.getValueF("l" + ofToString(i) + "y");
         float z = panel.getValueF("l" + ofToString(i) + "z");
         lights[i]->setLocation(ofVec3f(x*room.x,y*room.y,z*room.z));
-        //lights[i]->setStrength(pwr);
+        if(sliderControl) lights[i]->setStrength(pwr);
     }
 }
 
@@ -420,6 +426,10 @@ void testApp::keyPressed(int key){
         case ' ':
             break;
         case 'i':
+            sliderControl = !sliderControl;
+            for(int i=0;i<lights.size();i++) {
+                lights[i]->isDebug(sliderControl);
+            }
             break;
         case 'r':
             rotate =!rotate;
@@ -517,6 +527,10 @@ Light::~Light() {
     
 }
 
+void Light::isDebug(bool _debug) {
+    lightDebug = _debug;
+}
+
 void Light::isActive(bool _active) {
     active = _active;
     if( power <  .5) 
@@ -546,13 +560,15 @@ void Light::draw() {
 }
 
 void Light::tweenUpdate() {
-    if(active) {
-        if(power < 1.0)
-            power = (ofGetElapsedTimeMillis() - changed) / tweenTime;
-        else power = 1.0;
-    } else {
-        if(power > 0.) power -= .1;
-        else power = 0;
+    if(!lightDebug) {
+        if(active) {
+            if(power < 1.0)
+                power = (ofGetElapsedTimeMillis() - changed) / tweenTime;
+            else power = 1.0;
+        } else {
+            if(power > 0.) power -= .1;
+            else power = 0;
+        }
     }
     power = ofClamp(power,0.,1.);
 }

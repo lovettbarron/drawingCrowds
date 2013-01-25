@@ -27,7 +27,7 @@ public:
     void setTotalDist(float _dist);
     float getTotalDist();
     void isActive(bool _active);
-    
+    void isDebug(bool _debug);
     void drawArm(int num);
     void debug();
     bool isDone();
@@ -43,7 +43,7 @@ private:
     int numOfArms; // Num of arms per light
     int width;
     int height;
-    bool active;
+    bool active, lightDebug;
     long changed, tweenTime;
     float totalDist;
     float power; // 1.0 for light strength
@@ -132,7 +132,7 @@ public:
     void gotMessage(ofMessage msg);
     
     // Globals
-    bool debug, rotate;
+    bool debug, rotate, sliderControl;
     float depthMulti;
     int numberOfLights;
     ofVec3f room;
@@ -155,6 +155,7 @@ public:
     // Arduino
     ofSerial serial;
     string buffer;
+    long limitBuffer;
     
     // Kinects and controls
     ofxAutoControlPanel panel;
